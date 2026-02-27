@@ -1,0 +1,291 @@
+version: "3.9"
+
+services:
+  # ---- Infrastructure ----
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: brozadmin
+      POSTGRES_PASSWORD: password
+      POSTGRES_MULTIPLE_DATABASES: broz_auth,broz_user,broz_matching,broz_messaging,broz_notification,broz_moderation,broz_analytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./broz-infra/scripts/create-databases.sh:/docker-entrypoint-initdb.d/create-databases.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brozadmin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---- Microservices ----
+
+  broz-gateway:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-gateway
+    ports:
+      - "3100:3100"
+    environment:
+      BROZ_GATEWAY__PORT: 3100
+      BROZ_GATEWAY__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      BROZ_GATEWAY__REDIS_URL: redis://redis:6379
+      BROZ_GATEWAY__AUTH_URL: http://broz-auth:3001
+      BROZ_GATEWAY__USER_URL: http://broz-user:3002
+      BROZ_GATEWAY__MATCHING_URL: http://broz-matching:3003
+      BROZ_GATEWAY__MESSAGING_URL: http://broz-messaging:3004
+      BROZ_GATEWAY__NOTIFICATION_URL: http://broz-notification:3005
+      BROZ_GATEWAY__MODERATION_URL: http://broz-moderation:3006
+      BROZ_GATEWAY__ANALYTICS_URL: http://broz-analytics:3007
+      BROZ_GATEWAY__FREE_RPM: 600
+      BROZ_GATEWAY__FREE_RPH: 10000
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  broz-auth:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-auth
+    ports:
+      - "3001:3001"
+    environment:
+      BROZ_AUTH__PORT: 3001
+      BROZ_AUTH__DATABASE_URL: postgres://brozadmin:password@postgres:5432/broz_auth
+      BROZ_AUTH__RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      BROZ_AUTH__REDIS_URL: redis://redis:6379
+      BROZ_AUTH__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      BROZ_AUTH__RESEND_API_KEY: ${RESEND_API_KEY:-re_test_key}
+      BROZ_AUTH__FROM_EMAIL: ${FROM_EMAIL:-noreply@brozr.com}
+      BROZ_AUTH__GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      BROZ_AUTH__GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  broz-user:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-user
+    ports:
+      - "3002:3002"
+    environment:
+      BROZ_USER__PORT: 3002
+      BROZ_USER__DATABASE_URL: postgres://brozadmin:password@postgres:5432/broz_user
+      BROZ_USER__RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      BROZ_USER__REDIS_URL: redis://redis:6379
+      BROZ_USER__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      BROZ_USER__MINIO_ENDPOINT: http://minio:9000
+      BROZ_USER__MINIO_ACCESS_KEY: minioadmin
+      BROZ_USER__MINIO_SECRET_KEY: minioadmin
+      BROZ_USER__MINIO_BUCKET: broz-photos
+      BROZ_USER__MINIO_PUBLIC_URL: http://localhost:9000
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  broz-matching:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-matching
+    ports:
+      - "3003:3003"
+    environment:
+      BROZ_MATCHING__PORT: 3003
+      BROZ_MATCHING__DATABASE_URL: postgres://brozadmin:password@postgres:5432/broz_matching
+      BROZ_MATCHING__RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      BROZ_MATCHING__REDIS_URL: redis://redis:6379
+      BROZ_MATCHING__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      BROZ_MATCHING__USER_SERVICE_URL: http://broz-user:3002
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  broz-messaging:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-messaging
+    ports:
+      - "3004:3004"
+    environment:
+      BROZ_MESSAGING__PORT: 3004
+      BROZ_MESSAGING__DATABASE_URL: postgres://brozadmin:password@postgres:5432/broz_messaging
+      BROZ_MESSAGING__RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      BROZ_MESSAGING__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      BROZ_MESSAGING__MINIO_ENDPOINT: http://minio:9000
+      BROZ_MESSAGING__MINIO_ACCESS_KEY: minioadmin
+      BROZ_MESSAGING__MINIO_SECRET_KEY: minioadmin
+      BROZ_MESSAGING__MINIO_BUCKET: broz-messages
+      BROZ_MESSAGING__MINIO_PUBLIC_URL: http://localhost:9000
+      BROZ_MESSAGING__LIVERELAY_API_URL: http://liverelay-sfu:8080
+      BROZ_MESSAGING__LIVERELAY_API_KEY: ${LIVERELAY_API_KEY:-lr_dev_broz_api_key_0000000000}
+      BROZ_MESSAGING__REDIS_URL: redis://redis:6379
+      BROZ_MESSAGING__USER_SERVICE_URL: http://broz-user:3002
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      liverelay-sfu:
+        condition: service_started
+
+  broz-notification:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-notification
+    ports:
+      - "3005:3005"
+    environment:
+      BROZ_NOTIFICATION__PORT: 3005
+      BROZ_NOTIFICATION__DATABASE_URL: postgres://brozadmin:password@postgres:5432/broz_notification
+      BROZ_NOTIFICATION__RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      BROZ_NOTIFICATION__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  broz-moderation:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-moderation
+    ports:
+      - "3006:3006"
+    environment:
+      BROZ_MODERATION__PORT: 3006
+      BROZ_MODERATION__DATABASE_URL: postgres://brozadmin:password@postgres:5432/broz_moderation
+      BROZ_MODERATION__RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      BROZ_MODERATION__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  broz-analytics:
+    build:
+      context: .
+      dockerfile: broz-infra/docker/Dockerfile
+      args:
+        SERVICE: broz-analytics
+    ports:
+      - "3007:3007"
+    environment:
+      BROZ_ANALYTICS__PORT: 3007
+      BROZ_ANALYTICS__DATABASE_URL: postgres://brozadmin:password@postgres:5432/broz_analytics
+      BROZ_ANALYTICS__RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/%2f
+      BROZ_ANALYTICS__JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  liverelay-sfu:
+    build:
+      context: ../WEB_RTC
+    ports:
+      - "8080:8080"
+      - "3478:3478/udp"
+      - "20000-20100:20000-20100/udp"
+    environment:
+      LIVERELAY_BIND_ADDR: 0.0.0.0:8080
+      LIVERELAY_JWT_SECRET: ${JWT_SECRET:-development-secret-change-in-production}
+      LIVERELAY_API_KEY: ${LIVERELAY_API_KEY:-lr_dev_broz_api_key_0000000000}
+      LIVERELAY_ALLOWED_ORIGINS: "*"
+      LIVERELAY_TURN_EMBEDDED: "true"
+      LIVERELAY_TURN_PORT: "3478"
+      LIVERELAY_UDP_PORT_MIN: "20000"
+      LIVERELAY_UDP_PORT_MAX: "20100"
+      LIVERELAY_LOG_LEVEL: info
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:

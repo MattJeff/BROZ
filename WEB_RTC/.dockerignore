@@ -1,0 +1,6 @@
+target/
+.git/
+*.md
+deploy/
+coturn/
+docker-compose.yml

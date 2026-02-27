@@ -1,0 +1,66 @@
+# Template for BROZ microservice deployment
+# Replace ${SERVICE_NAME}, ${PORT}, ${CPU_REQ}, ${CPU_LIMIT}, ${MEM_REQ}, ${MEM_LIMIT}, ${REPLICAS}
+# Example: SERVICE_NAME=broz-auth, PORT=3001, REPLICAS=1
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${SERVICE_NAME}
+  namespace: broz-app
+  labels:
+    app: ${SERVICE_NAME}
+spec:
+  replicas: ${REPLICAS}
+  selector:
+    matchLabels:
+      app: ${SERVICE_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${SERVICE_NAME}
+    spec:
+      containers:
+        - name: ${SERVICE_NAME}
+          image: registry.brozr.com/${SERVICE_NAME}:latest
+          ports:
+            - containerPort: ${PORT}
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+          envFrom:
+            - configMapRef:
+                name: ${SERVICE_NAME}-config
+          resources:
+            requests:
+              cpu: ${CPU_REQ}
+              memory: ${MEM_REQ}
+            limits:
+              cpu: ${CPU_LIMIT}
+              memory: ${MEM_LIMIT}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: ${PORT}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: ${PORT}
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${SERVICE_NAME}
+  namespace: broz-app
+spec:
+  selector:
+    app: ${SERVICE_NAME}
+  ports:
+    - port: ${PORT}
+      targetPort: ${PORT}

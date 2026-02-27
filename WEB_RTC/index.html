@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiveRelay — WebRTC SFU Playground</title>
+  <style>
+    /* ================================================================
+       RESET & BASE
+       ================================================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0a0a0a;
+      --bg-card: #1a1a2e;
+      --bg-input: #0f0f1a;
+      --border: #2a2a3e;
+      --border-input: #333;
+      --text: #e0e0e0;
+      --text-muted: #888;
+      --text-dim: #555;
+      --blue: #2563eb;
+      --blue-hover: #1d4ed8;
+      --green: #16a34a;
+      --green-hover: #15803d;
+      --red: #dc2626;
+      --red-hover: #b91c1c;
+      --orange: #f59e0b;
+      --mono: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ================================================================
+       HEADER
+       ================================================================ */
+    .header {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-logo {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: #fff;
+    }
+
+    .header-logo span {
+      color: var(--blue);
+    }
+
+    .header-subtitle {
+      font-size: 1rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+      font-weight: 400;
+    }
+
+    /* ================================================================
+       LAYOUT
+       ================================================================ */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-title .badge {
+      font-size: 0.7rem;
+      background: var(--blue);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ================================================================
+       CARDS
+       ================================================================ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    /* ================================================================
+       FORM ELEMENTS
+       ================================================================ */
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border-input);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: var(--mono);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]::placeholder,
+    input[type="password"]::placeholder {
+      color: #555;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: var(--blue);
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .token-field {
+      position: relative;
+    }
+
+    .token-field input {
+      padding-right: 3.5rem;
+    }
+
+    .token-field .copy-btn {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--border);
+      border: none;
+      border-radius: 6px;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .token-field .copy-btn:hover {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    /* ================================================================
+       BUTTONS
+       ================================================================ */
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+      font-family: var(--sans);
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--blue-hover);
+    }
+
+    .btn-success {
+      background: var(--green);
+      color: #fff;
+    }
+    .btn-success:hover:not(:disabled) {
+      background: var(--green-hover);
+    }
+
+    .btn-danger {
+      background: var(--red);
+      color: #fff;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: var(--red-hover);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover:not(:disabled) {
+      border-color: var(--text-muted);
+      color: var(--text);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* ================================================================
+       TOKENS DISPLAY
+       ================================================================ */
+    .tokens-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .token-display {
+      display: none;
+    }
+
+    .token-display.visible {
+      display: block;
+    }
+
+    /* ================================================================
+       COLUMNS (broadcast / call)
+       ================================================================ */
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .columns {
+        grid-template-columns: 1fr;
+      }
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      .tokens-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .column-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .column-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .column-title .role-tag {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .role-pub {
+      background: rgba(22, 163, 74, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(22, 163, 74, 0.3);
+    }
+
+    .role-sub {
+      background: rgba(37, 99, 235, 0.15);
+      color: var(--blue);
+      border: 1px solid rgba(37, 99, 235, 0.3);
+    }
+
+    .role-peer {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--orange);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* ================================================================
+       STATUS
+       ================================================================ */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: #555;
+    }
+
+    .status-dot.connecting {
+      background: var(--orange);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .status-dot.connected { background: #22c55e; }
+    .status-dot.disconnected { background: var(--red); }
+    .status-dot.failed { background: var(--red); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ================================================================
+       VIDEO
+       ================================================================ */
+    .video-wrapper {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .video-wrapper video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #444;
+      font-size: 0.85rem;
+      pointer-events: none;
+    }
+
+    /* ================================================================
+       CODE SNIPPETS
+       ================================================================ */
+    .snippet-wrapper {
+      position: relative;
+      margin-top: 0.5rem;
+    }
+
+    .snippet-toggle {
+      font-size: 0.78rem;
+      color: var(--blue);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px 0;
+      font-family: var(--sans);
+      font-weight: 600;
+    }
+
+    .snippet-toggle:hover {
+      text-decoration: underline;
+    }
+
+    .snippet-block {
+      display: none;
+      position: relative;
+    }
+
+    .snippet-block.open {
+      display: block;
+    }
+
+    .snippet-block pre {
+      background: #0d0d18;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.7;
+      color: #c9d1d9;
+      margin-top: 0.5rem;
+    }
+
+    .snippet-block .copy-snippet-btn {
+      position: absolute;
+      top: 0.85rem;
+      right: 0.6rem;
+      background: var(--border);
+      border: none;
+      border-radius: 6px;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: var(--sans);
+    }
+
+    .snippet-block .copy-snippet-btn:hover {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    /* ================================================================
+       LOG CONSOLE
+       ================================================================ */
+    .log-console {
+      background: #0d0d0d;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 0.75rem 1rem;
+      line-height: 1.8;
+    }
+
+    .log-console::-webkit-scrollbar {
+      width: 6px;
+    }
+    .log-console::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .log-console::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+
+    .log-entry {
+      color: var(--text-muted);
+    }
+    .log-entry.info { color: #888; }
+    .log-entry.success { color: #22c55e; }
+    .log-entry.error { color: #ef4444; }
+    .log-entry.warn { color: #f59e0b; }
+
+    .log-entry .ts {
+      color: var(--text-dim);
+      margin-right: 0.6rem;
+      user-select: none;
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .log-header button {
+      padding: 4px 12px;
+      font-size: 0.75rem;
+    }
+
+    /* ================================================================
+       UTILITIES
+       ================================================================ */
+    .mt-1 { margin-top: 0.5rem; }
+    .mt-2 { margin-top: 1rem; }
+    .hidden { display: none !important; }
+
+    .info-text {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0.5rem 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================================================================
+       HEADER
+       ================================================================ -->
+  <header class="header">
+    <div class="header-logo">Live<span>Relay</span></div>
+    <p class="header-subtitle">WebRTC SFU &mdash; Playground</p>
+  </header>
+
+  <main class="main">
+
+    <!-- ==============================================================
+         SECTION 1: CONFIGURATION
+         ============================================================== -->
+    <section>
+      <h2 class="section-title">Configuration <span class="badge">Step 1</span></h2>
+      <div class="card">
+        <div class="form-row">
+          <div class="input-group">
+            <label for="apiKey">API Key</label>
+            <input type="password" id="apiKey" placeholder="your-bootstrap-api-key">
+          </div>
+          <div class="input-group">
+            <label for="serverUrl">Server URL</label>
+            <input type="text" id="serverUrl" placeholder="http://localhost:8080">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-primary" id="btnCreateBroadcast">Create Broadcast Room</button>
+          <button class="btn-primary" id="btnCreateCall">Create Call Room</button>
+        </div>
+
+        <!-- Broadcast tokens -->
+        <div id="broadcastTokens" class="token-display">
+          <p style="font-size:0.82rem; color:#fff; font-weight:600; margin-bottom:0.5rem;">Broadcast Room Tokens</p>
+          <div class="tokens-grid">
+            <div class="input-group">
+              <label for="publishToken">Publish Token</label>
+              <div class="token-field">
+                <input type="text" id="publishToken" readonly placeholder="...">
+                <button class="copy-btn" onclick="copyField('publishToken')">Copy</button>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="subscribeToken">Subscribe Token</label>
+              <div class="token-field">
+                <input type="text" id="subscribeToken" readonly placeholder="...">
+                <button class="copy-btn" onclick="copyField('subscribeToken')">Copy</button>
+              </div>
+            </div>
+          </div>
+          <p class="info-text mt-1" id="broadcastRoomInfo"></p>
+        </div>
+
+        <!-- Call tokens -->
+        <div id="callTokens" class="token-display">
+          <p style="font-size:0.82rem; color:#fff; font-weight:600; margin-bottom:0.5rem;">Call Room Tokens</p>
+          <div class="tokens-grid">
+            <div class="input-group">
+              <label for="callerToken">Caller Token (Peer A)</label>
+              <div class="token-field">
+                <input type="text" id="callerToken" readonly placeholder="...">
+                <button class="copy-btn" onclick="copyField('callerToken')">Copy</button>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="calleeToken">Callee Token (Peer B)</label>
+              <div class="token-field">
+                <input type="text" id="calleeToken" readonly placeholder="...">
+                <button class="copy-btn" onclick="copyField('calleeToken')">Copy</button>
+              </div>
+            </div>
+          </div>
+          <p class="info-text mt-1" id="callRoomInfo"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================================
+         SECTION 2: BROADCAST
+         ============================================================== -->
+    <section>
+      <h2 class="section-title">Broadcast <span class="badge">Step 2</span></h2>
+      <div class="columns">
+
+        <!-- Publisher -->
+        <div class="column-card">
+          <div class="column-title">
+            Publisher <span class="role-tag role-pub">Publish</span>
+          </div>
+
+          <div class="status" id="pubStatus">
+            <span class="status-dot" id="pubDot"></span>
+            <span id="pubStatusText">Idle</span>
+          </div>
+
+          <div class="video-wrapper">
+            <video id="pubVideo" autoplay playsinline muted></video>
+            <div class="video-placeholder" id="pubPlaceholder">Camera preview</div>
+          </div>
+
+          <div class="btn-row" style="margin-top:0">
+            <button class="btn-success" id="btnGoLive" disabled>Go Live</button>
+            <button class="btn-danger" id="btnStopPub" disabled>Stop</button>
+          </div>
+
+          <div class="snippet-wrapper">
+            <button class="snippet-toggle" onclick="toggleSnippet('snippetPublish')">Show code</button>
+            <div class="snippet-block" id="snippetPublish">
+              <button class="copy-snippet-btn" onclick="copySnippet('snippetPublishCode')">Copy</button>
+              <pre><code id="snippetPublishCode">// 1. Create a broadcast room
+const resp = await fetch(`${serverUrl}/v1/rooms`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  },
+  body: JSON.stringify({ room_type: 'broadcast' })
+});
+const room = await resp.json();
+
+// 2. Get camera & microphone
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: true, audio: true
+});
+
+// 3. Publish via SDK
+const lr = new LiveRelay({ server: serverUrl });
+const session = await lr.publish({
+  token: room.tokens.publish,
+  stream: stream,
+  onStateChange: (state) =&gt; console.log('Publisher:', state)
+});
+
+// 4. Stop when done
+session.close();</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subscriber -->
+        <div class="column-card">
+          <div class="column-title">
+            Subscriber <span class="role-tag role-sub">Subscribe</span>
+          </div>
+
+          <div class="status" id="subStatus">
+            <span class="status-dot" id="subDot"></span>
+            <span id="subStatusText">Idle</span>
+          </div>
+
+          <div class="video-wrapper">
+            <video id="subVideo" autoplay playsinline></video>
+            <div class="video-placeholder" id="subPlaceholder">Waiting for stream</div>
+          </div>
+
+          <div class="btn-row" style="margin-top:0">
+            <button class="btn-primary" id="btnWatch" disabled>Watch</button>
+            <button class="btn-danger" id="btnStopSub" disabled>Stop</button>
+          </div>
+
+          <div class="input-group mt-1">
+            <label for="shareLink">Share subscribe link</label>
+            <div class="token-field">
+              <input type="text" id="shareLink" readonly placeholder="Subscribe token will appear here">
+              <button class="copy-btn" onclick="copyField('shareLink')">Copy</button>
+            </div>
+          </div>
+
+          <div class="snippet-wrapper">
+            <button class="snippet-toggle" onclick="toggleSnippet('snippetSubscribe')">Show code</button>
+            <div class="snippet-block" id="snippetSubscribe">
+              <button class="copy-snippet-btn" onclick="copySnippet('snippetSubscribeCode')">Copy</button>
+              <pre><code id="snippetSubscribeCode">// Subscribe to a broadcast
+const lr = new LiveRelay({ server: serverUrl });
+const session = await lr.subscribe({
+  token: room.tokens.subscribe,
+  element: document.getElementById('my-video'),
+  onStateChange: (state) =&gt; console.log('Subscriber:', state)
+});
+
+// Stop when done
+session.close();</code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==============================================================
+         SECTION 3: CALL 1:1
+         ============================================================== -->
+    <section>
+      <h2 class="section-title">Call 1:1 <span class="badge">Step 3</span></h2>
+      <div class="columns">
+
+        <!-- Peer A -->
+        <div class="column-card">
+          <div class="column-title">
+            Peer A <span class="role-tag role-peer">Caller</span>
+          </div>
+
+          <div class="status" id="peerAStatus">
+            <span class="status-dot" id="peerADot"></span>
+            <span id="peerAStatusText">Idle</span>
+          </div>
+
+          <div class="video-wrapper">
+            <video id="peerALocal" autoplay playsinline muted></video>
+            <div class="video-placeholder" id="peerALocalPlaceholder">Local camera</div>
+          </div>
+
+          <div class="video-wrapper">
+            <video id="peerARemote" autoplay playsinline></video>
+            <div class="video-placeholder" id="peerARemotePlaceholder">Remote stream</div>
+          </div>
+
+          <div class="btn-row" style="margin-top:0">
+            <button class="btn-success" id="btnJoinA" disabled>Join Call</button>
+            <button class="btn-danger" id="btnStopA" disabled>Leave</button>
+          </div>
+        </div>
+
+        <!-- Peer B -->
+        <div class="column-card">
+          <div class="column-title">
+            Peer B <span class="role-tag role-peer">Callee</span>
+          </div>
+
+          <div class="status" id="peerBStatus">
+            <span class="status-dot" id="peerBDot"></span>
+            <span id="peerBStatusText">Idle</span>
+          </div>
+
+          <div class="video-wrapper">
+            <video id="peerBLocal" autoplay playsinline muted></video>
+            <div class="video-placeholder" id="peerBLocalPlaceholder">Local camera</div>
+          </div>
+
+          <div class="video-wrapper">
+            <video id="peerBRemote" autoplay playsinline></video>
+            <div class="video-placeholder" id="peerBRemotePlaceholder">Remote stream</div>
+          </div>
+
+          <div class="btn-row" style="margin-top:0">
+            <button class="btn-success" id="btnJoinB" disabled>Join Call</button>
+            <button class="btn-danger" id="btnStopB" disabled>Leave</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="snippet-wrapper mt-2">
+        <button class="snippet-toggle" onclick="toggleSnippet('snippetCall')">Show code</button>
+        <div class="snippet-block" id="snippetCall">
+          <button class="copy-snippet-btn" onclick="copySnippet('snippetCallCode')">Copy</button>
+          <pre><code id="snippetCallCode">// 1. Create a call room
+const resp = await fetch(`${serverUrl}/v1/rooms`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  },
+  body: JSON.stringify({ room_type: 'call' })
+});
+const room = await resp.json();
+// room.tokens.caller  &rarr; for Peer A
+// room.tokens.callee  &rarr; for Peer B
+
+// 2. Each peer joins with their token
+const lr = new LiveRelay({ server: serverUrl });
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: true, audio: true
+});
+
+const session = await lr.call({
+  token: room.tokens.caller,   // or room.tokens.callee
+  stream: stream,
+  element: document.getElementById('remote-video'),
+  localElement: document.getElementById('local-video'),
+  onStateChange: (state) =&gt; console.log('Call:', state)
+});
+
+// 3. Hang up
+session.close();</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==============================================================
+         SECTION 4: LOGS
+         ============================================================== -->
+    <section>
+      <div class="log-header">
+        <h2 class="section-title" style="margin-bottom:0;">Logs</h2>
+        <button class="btn-outline" id="btnClearLog">Clear</button>
+      </div>
+      <div class="log-console" id="logConsole"></div>
+    </section>
+
+  </main>
+
+  <!-- ================================================================
+       SDK
+       ================================================================ -->
+  <script src="/static/liverelay.js"></script>
+
+  <!-- ================================================================
+       APPLICATION LOGIC
+       ================================================================ -->
+  <script>
+    // ---------------------------------------------------------------
+    // DOM references
+    // ---------------------------------------------------------------
+    const $apiKey         = document.getElementById('apiKey');
+    const $serverUrl      = document.getElementById('serverUrl');
+    const $btnCreateBC    = document.getElementById('btnCreateBroadcast');
+    const $btnCreateCall  = document.getElementById('btnCreateCall');
+
+    // Broadcast tokens
+    const $broadcastTokens = document.getElementById('broadcastTokens');
+    const $publishToken    = document.getElementById('publishToken');
+    const $subscribeToken  = document.getElementById('subscribeToken');
+    const $broadcastInfo   = document.getElementById('broadcastRoomInfo');
+
+    // Call tokens
+    const $callTokens  = document.getElementById('callTokens');
+    const $callerToken = document.getElementById('callerToken');
+    const $calleeToken = document.getElementById('calleeToken');
+    const $callInfo    = document.getElementById('callRoomInfo');
+
+    // Publish
+    const $pubVideo       = document.getElementById('pubVideo');
+    const $pubPlaceholder = document.getElementById('pubPlaceholder');
+    const $pubDot         = document.getElementById('pubDot');
+    const $pubStatusText  = document.getElementById('pubStatusText');
+    const $btnGoLive      = document.getElementById('btnGoLive');
+    const $btnStopPub     = document.getElementById('btnStopPub');
+
+    // Subscribe
+    const $subVideo       = document.getElementById('subVideo');
+    const $subPlaceholder = document.getElementById('subPlaceholder');
+    const $subDot         = document.getElementById('subDot');
+    const $subStatusText  = document.getElementById('subStatusText');
+    const $btnWatch       = document.getElementById('btnWatch');
+    const $btnStopSub     = document.getElementById('btnStopSub');
+    const $shareLink      = document.getElementById('shareLink');
+
+    // Call peers
+    const $peerALocal           = document.getElementById('peerALocal');
+    const $peerARemote          = document.getElementById('peerARemote');
+    const $peerALocalPlaceholder  = document.getElementById('peerALocalPlaceholder');
+    const $peerARemotePlaceholder = document.getElementById('peerARemotePlaceholder');
+    const $peerADot             = document.getElementById('peerADot');
+    const $peerAStatusText      = document.getElementById('peerAStatusText');
+    const $btnJoinA             = document.getElementById('btnJoinA');
+    const $btnStopA             = document.getElementById('btnStopA');
+
+    const $peerBLocal           = document.getElementById('peerBLocal');
+    const $peerBRemote          = document.getElementById('peerBRemote');
+    const $peerBLocalPlaceholder  = document.getElementById('peerBLocalPlaceholder');
+    const $peerBRemotePlaceholder = document.getElementById('peerBRemotePlaceholder');
+    const $peerBDot             = document.getElementById('peerBDot');
+    const $peerBStatusText      = document.getElementById('peerBStatusText');
+    const $btnJoinB             = document.getElementById('btnJoinB');
+    const $btnStopB             = document.getElementById('btnStopB');
+
+    // Log
+    const $logConsole = document.getElementById('logConsole');
+    const $btnClearLog = document.getElementById('btnClearLog');
+
+    // ---------------------------------------------------------------
+    // State
+    // ---------------------------------------------------------------
+    let publishSession   = null;
+    let subscribeSession = null;
+    let localPubStream   = null;
+
+    let callSessionA = null;
+    let callSessionB = null;
+    let callStreamA  = null;
+    let callStreamB  = null;
+
+    // ---------------------------------------------------------------
+    // Init defaults
+    // ---------------------------------------------------------------
+    $serverUrl.value = window.location.origin;
+
+    // ---------------------------------------------------------------
+    // Logging
+    // ---------------------------------------------------------------
+    function log(msg, type = 'info') {
+      const ts = new Date().toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `<span class="ts">${ts}</span>${escapeHtml(msg)}`;
+      $logConsole.appendChild(entry);
+      $logConsole.scrollTop = $logConsole.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    $btnClearLog.addEventListener('click', () => {
+      $logConsole.innerHTML = '';
+    });
+
+    // ---------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------
+    function getServerUrl() {
+      const url = $serverUrl.value.trim().replace(/\/+$/, '');
+      if (!url) throw new Error('Server URL is required');
+      return url;
+    }
+
+    function getApiKey() {
+      const key = $apiKey.value.trim();
+      if (!key) throw new Error('API Key is required');
+      return key;
+    }
+
+    function copyField(id) {
+      const el = document.getElementById(id);
+      if (!el || !el.value) return;
+      navigator.clipboard.writeText(el.value).then(() => {
+        log('Copied to clipboard', 'success');
+      });
+    }
+
+    function copySnippet(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      navigator.clipboard.writeText(el.textContent).then(() => {
+        log('Code snippet copied to clipboard', 'success');
+      });
+    }
+
+    function toggleSnippet(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('open');
+    }
+
+    function setStatusUI(dot, textEl, state) {
+      dot.className = `status-dot ${state}`;
+      textEl.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+    }
+
+    function stopStreamTracks(stream) {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Room creation
+    // ---------------------------------------------------------------
+    async function createRoom(roomType) {
+      const serverUrl = getServerUrl();
+      const apiKey = getApiKey();
+
+      log(`Creating ${roomType} room...`, 'info');
+
+      const resp = await fetch(`${serverUrl}/v1/rooms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({ room_type: roomType })
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Server ${resp.status}: ${errText}`);
+      }
+
+      const room = await resp.json();
+      log(`Room created: ${room.id} (type: ${room.type})`, 'success');
+      return room;
+    }
+
+    // Create Broadcast Room
+    $btnCreateBC.addEventListener('click', async () => {
+      try {
+        const room = await createRoom('broadcast');
+
+        $publishToken.value  = room.tokens.publish;
+        $subscribeToken.value = room.tokens.subscribe;
+        $broadcastInfo.textContent = `Room ID: ${room.id}`;
+        $broadcastTokens.classList.add('visible');
+
+        // Enable buttons
+        $btnGoLive.disabled = false;
+        $btnWatch.disabled = false;
+
+        // Share link
+        $shareLink.value = room.tokens.subscribe;
+
+        log('Broadcast tokens ready. You can now Go Live and Watch.', 'success');
+      } catch (err) {
+        log(err.message, 'error');
+      }
+    });
+
+    // Create Call Room
+    $btnCreateCall.addEventListener('click', async () => {
+      try {
+        const room = await createRoom('call');
+
+        $callerToken.value = room.tokens.caller;
+        $calleeToken.value = room.tokens.callee;
+        $callInfo.textContent = `Room ID: ${room.id}`;
+        $callTokens.classList.add('visible');
+
+        // Enable buttons
+        $btnJoinA.disabled = false;
+        $btnJoinB.disabled = false;
+
+        log('Call tokens ready. Both peers can now join.', 'success');
+      } catch (err) {
+        log(err.message, 'error');
+      }
+    });
+
+    // ---------------------------------------------------------------
+    // Broadcast: Publish
+    // ---------------------------------------------------------------
+    $btnGoLive.addEventListener('click', async () => {
+      try {
+        const serverUrl = getServerUrl();
+        const token = $publishToken.value.trim();
+        if (!token) {
+          log('No publish token. Create a broadcast room first.', 'warn');
+          return;
+        }
+
+        $btnGoLive.disabled = true;
+        setStatusUI($pubDot, $pubStatusText, 'connecting');
+        log('Requesting camera and microphone...', 'info');
+
+        localPubStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+
+        log(`Got local stream: ${localPubStream.getTracks().map(t => t.kind).join(', ')}`, 'info');
+
+        // Show local preview
+        $pubVideo.srcObject = localPubStream;
+        $pubPlaceholder.style.display = 'none';
+
+        const lr = new LiveRelay({ server: serverUrl });
+
+        log('Publishing to SFU...', 'info');
+        publishSession = await lr.publish({
+          token: token,
+          stream: localPubStream,
+          onStateChange: (state) => {
+            setStatusUI($pubDot, $pubStatusText, state);
+            log(`Publisher: ${state}`, state === 'connected' ? 'success' : state === 'failed' ? 'error' : 'info');
+          }
+        });
+
+        setStatusUI($pubDot, $pubStatusText, 'connected');
+        $btnStopPub.disabled = false;
+        log('Publishing live!', 'success');
+      } catch (err) {
+        setStatusUI($pubDot, $pubStatusText, 'failed');
+        if (err.name === 'NotAllowedError') {
+          log('Camera/microphone permission denied. Please allow access and try again.', 'error');
+        } else if (err.name === 'NotFoundError') {
+          log('No camera or microphone found on this device.', 'error');
+        } else {
+          log(`Publish error: ${err.message}`, 'error');
+        }
+        $btnGoLive.disabled = false;
+      }
+    });
+
+    // Stop publish
+    $btnStopPub.addEventListener('click', () => {
+      if (publishSession) {
+        publishSession.close();
+        publishSession = null;
+      }
+      stopStreamTracks(localPubStream);
+      localPubStream = null;
+      $pubVideo.srcObject = null;
+      $pubPlaceholder.style.display = '';
+      setStatusUI($pubDot, $pubStatusText, 'disconnected');
+      $btnGoLive.disabled = false;
+      $btnStopPub.disabled = true;
+      log('Publisher stopped.', 'info');
+    });
+
+    // ---------------------------------------------------------------
+    // Broadcast: Subscribe
+    // ---------------------------------------------------------------
+    $btnWatch.addEventListener('click', async () => {
+      try {
+        const serverUrl = getServerUrl();
+        const token = $subscribeToken.value.trim();
+        if (!token) {
+          log('No subscribe token. Create a broadcast room first.', 'warn');
+          return;
+        }
+
+        $btnWatch.disabled = true;
+        setStatusUI($subDot, $subStatusText, 'connecting');
+        log('Subscribing to SFU...', 'info');
+
+        const lr = new LiveRelay({ server: serverUrl });
+
+        subscribeSession = await lr.subscribe({
+          token: token,
+          element: $subVideo,
+          onStateChange: (state) => {
+            setStatusUI($subDot, $subStatusText, state);
+            log(`Subscriber: ${state}`, state === 'connected' ? 'success' : state === 'failed' ? 'error' : 'info');
+            if (state === 'connected') {
+              $subPlaceholder.style.display = 'none';
+            }
+          }
+        });
+
+        setStatusUI($subDot, $subStatusText, 'connected');
+        $subPlaceholder.style.display = 'none';
+        $btnStopSub.disabled = false;
+        log('Subscribed. Watching live stream.', 'success');
+      } catch (err) {
+        setStatusUI($subDot, $subStatusText, 'failed');
+        log(`Subscribe error: ${err.message}`, 'error');
+        $btnWatch.disabled = false;
+      }
+    });
+
+    // Stop subscribe
+    $btnStopSub.addEventListener('click', () => {
+      if (subscribeSession) {
+        subscribeSession.close();
+        subscribeSession = null;
+      }
+      $subVideo.srcObject = null;
+      $subPlaceholder.style.display = '';
+      setStatusUI($subDot, $subStatusText, 'disconnected');
+      $btnWatch.disabled = false;
+      $btnStopSub.disabled = true;
+      log('Subscriber stopped.', 'info');
+    });
+
+    // ---------------------------------------------------------------
+    // Call 1:1: Peer A
+    // ---------------------------------------------------------------
+    $btnJoinA.addEventListener('click', async () => {
+      try {
+        const serverUrl = getServerUrl();
+        const token = $callerToken.value.trim();
+        if (!token) {
+          log('No caller token. Create a call room first.', 'warn');
+          return;
+        }
+
+        $btnJoinA.disabled = true;
+        setStatusUI($peerADot, $peerAStatusText, 'connecting');
+        log('[Peer A] Requesting camera and microphone...', 'info');
+
+        callStreamA = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+
+        log(`[Peer A] Got local stream: ${callStreamA.getTracks().map(t => t.kind).join(', ')}`, 'info');
+
+        const lr = new LiveRelay({ server: serverUrl });
+
+        log('[Peer A] Joining call...', 'info');
+        callSessionA = await lr.call({
+          token: token,
+          stream: callStreamA,
+          element: $peerARemote,
+          localElement: $peerALocal,
+          onStateChange: (state) => {
+            setStatusUI($peerADot, $peerAStatusText, state);
+            log(`[Peer A] Call: ${state}`, state === 'connected' ? 'success' : state === 'failed' ? 'error' : 'info');
+            if (state === 'connected') {
+              $peerARemotePlaceholder.style.display = 'none';
+            }
+          }
+        });
+
+        $peerALocalPlaceholder.style.display = 'none';
+        setStatusUI($peerADot, $peerAStatusText, 'connected');
+        $btnStopA.disabled = false;
+        log('[Peer A] Joined call.', 'success');
+      } catch (err) {
+        setStatusUI($peerADot, $peerAStatusText, 'failed');
+        if (err.name === 'NotAllowedError') {
+          log('[Peer A] Camera/microphone permission denied.', 'error');
+        } else {
+          log(`[Peer A] Call error: ${err.message}`, 'error');
+        }
+        $btnJoinA.disabled = false;
+      }
+    });
+
+    // Stop Peer A
+    $btnStopA.addEventListener('click', () => {
+      if (callSessionA) {
+        callSessionA.close();
+        callSessionA = null;
+      }
+      stopStreamTracks(callStreamA);
+      callStreamA = null;
+      $peerALocal.srcObject = null;
+      $peerARemote.srcObject = null;
+      $peerALocalPlaceholder.style.display = '';
+      $peerARemotePlaceholder.style.display = '';
+      setStatusUI($peerADot, $peerAStatusText, 'disconnected');
+      $btnJoinA.disabled = false;
+      $btnStopA.disabled = true;
+      log('[Peer A] Left call.', 'info');
+    });
+
+    // ---------------------------------------------------------------
+    // Call 1:1: Peer B
+    // ---------------------------------------------------------------
+    $btnJoinB.addEventListener('click', async () => {
+      try {
+        const serverUrl = getServerUrl();
+        const token = $calleeToken.value.trim();
+        if (!token) {
+          log('No callee token. Create a call room first.', 'warn');
+          return;
+        }
+
+        $btnJoinB.disabled = true;
+        setStatusUI($peerBDot, $peerBStatusText, 'connecting');
+        log('[Peer B] Requesting camera and microphone...', 'info');
+
+        callStreamB = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+
+        log(`[Peer B] Got local stream: ${callStreamB.getTracks().map(t => t.kind).join(', ')}`, 'info');
+
+        const lr = new LiveRelay({ server: serverUrl });
+
+        log('[Peer B] Joining call...', 'info');
+        callSessionB = await lr.call({
+          token: token,
+          stream: callStreamB,
+          element: $peerBRemote,
+          localElement: $peerBLocal,
+          onStateChange: (state) => {
+            setStatusUI($peerBDot, $peerBStatusText, state);
+            log(`[Peer B] Call: ${state}`, state === 'connected' ? 'success' : state === 'failed' ? 'error' : 'info');
+            if (state === 'connected') {
+              $peerBRemotePlaceholder.style.display = 'none';
+            }
+          }
+        });
+
+        $peerBLocalPlaceholder.style.display = 'none';
+        setStatusUI($peerBDot, $peerBStatusText, 'connected');
+        $btnStopB.disabled = false;
+        log('[Peer B] Joined call.', 'success');
+      } catch (err) {
+        setStatusUI($peerBDot, $peerBStatusText, 'failed');
+        if (err.name === 'NotAllowedError') {
+          log('[Peer B] Camera/microphone permission denied.', 'error');
+        } else {
+          log(`[Peer B] Call error: ${err.message}`, 'error');
+        }
+        $btnJoinB.disabled = false;
+      }
+    });
+
+    // Stop Peer B
+    $btnStopB.addEventListener('click', () => {
+      if (callSessionB) {
+        callSessionB.close();
+        callSessionB = null;
+      }
+      stopStreamTracks(callStreamB);
+      callStreamB = null;
+      $peerBLocal.srcObject = null;
+      $peerBRemote.srcObject = null;
+      $peerBLocalPlaceholder.style.display = '';
+      $peerBRemotePlaceholder.style.display = '';
+      setStatusUI($peerBDot, $peerBStatusText, 'disconnected');
+      $btnJoinB.disabled = false;
+      $btnStopB.disabled = true;
+      log('[Peer B] Left call.', 'info');
+    });
+
+    // ---------------------------------------------------------------
+    // Boot message
+    // ---------------------------------------------------------------
+    log('LiveRelay Playground ready. Enter your API key and server URL, then create a room to get started.', 'info');
+  </script>
+</body>
+</html>

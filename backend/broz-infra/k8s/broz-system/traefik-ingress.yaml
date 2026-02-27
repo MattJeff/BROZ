@@ -1,0 +1,115 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: broz-api
+  namespace: broz-system
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    # Socket.IO matching - direct to matching service (bypass gateway)
+    - match: Host(`api.brozr.com`) && PathPrefix(`/api/ws`)
+      kind: Rule
+      services:
+        - name: broz-matching
+          namespace: broz-app
+          port: 3003
+      middlewares:
+        - name: strip-ws-prefix
+
+    # Socket.IO messaging - direct to messaging service (bypass gateway)
+    - match: Host(`api.brozr.com`) && PathPrefix(`/api/messaging-ws`)
+      kind: Rule
+      services:
+        - name: broz-messaging
+          namespace: broz-app
+          port: 3004
+      middlewares:
+        - name: strip-messaging-ws-prefix
+
+    # All other API traffic through gateway
+    - match: Host(`api.brozr.com`) && PathPrefix(`/api`)
+      kind: Rule
+      services:
+        - name: broz-gateway
+          namespace: broz-app
+          port: 3100
+
+    # Admin SPA
+    - match: Host(`admin.brozr.com`)
+      kind: Rule
+      services:
+        - name: broz-frontend
+          namespace: broz-frontend
+          port: 80
+
+    # Main frontend
+    - match: Host(`app.brozr.com`)
+      kind: Rule
+      services:
+        - name: broz-frontend
+          namespace: broz-frontend
+          port: 80
+
+  tls:
+    certResolver: letsencrypt
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-ws-prefix
+  namespace: broz-system
+spec:
+  stripPrefix:
+    prefixes:
+      - /api/ws
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-messaging-ws-prefix
+  namespace: broz-system
+spec:
+  stripPrefix:
+    prefixes:
+      - /api/messaging-ws
+---
+# Rate limiting middleware for API
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-rate-limit
+  namespace: broz-system
+spec:
+  rateLimit:
+    average: 100
+    burst: 200
+    period: 1m
+---
+# Security headers middleware
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: broz-system
+spec:
+  headers:
+    stsSeconds: 63072000
+    stsIncludeSubdomains: true
+    stsPreload: true
+    contentTypeNosniff: true
+    frameDeny: true
+    browserXssFilter: true
+    referrerPolicy: strict-origin-when-cross-origin
+---
+# Traefik config for websocket timeouts
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: websocket-transport
+  namespace: broz-system
+spec:
+  forwardingTimeouts:
+    dialTimeout: 30s
+    responseHeaderTimeout: 0s
+    idleConnTimeout: 90s

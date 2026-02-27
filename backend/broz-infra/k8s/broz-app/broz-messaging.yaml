@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broz-messaging
+  namespace: broz-app
+  labels:
+    app: broz-messaging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broz-messaging
+  template:
+    metadata:
+      labels:
+        app: broz-messaging
+    spec:
+      containers:
+        - name: broz-messaging
+          image: registry.brozr.com/broz-messaging:latest
+          ports:
+            - containerPort: 3004
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: BROZ_MESSAGING__JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: POSTGRES_PASSWORD
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: RABBITMQ_PASS
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: MINIO_SECRET_KEY
+            - name: LIVERELAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: LIVERELAY_API_KEY
+            - name: BROZ_MESSAGING__PORT
+              value: "3004"
+            - name: BROZ_MESSAGING__DATABASE_URL
+              value: "postgres://brozadmin:$(POSTGRES_PASSWORD)@postgres.broz-data.svc.cluster.local:5432/broz_messaging"
+            - name: BROZ_MESSAGING__RABBITMQ_URL
+              value: "amqp://broz:$(RABBITMQ_PASS)@rabbitmq.broz-data.svc.cluster.local:5672/%2f"
+            - name: BROZ_MESSAGING__MINIO_ENDPOINT
+              value: "http://minio.broz-data.svc.cluster.local:9000"
+            - name: BROZ_MESSAGING__MINIO_ACCESS_KEY
+              value: "$(MINIO_ACCESS_KEY)"
+            - name: BROZ_MESSAGING__MINIO_SECRET_KEY
+              value: "$(MINIO_SECRET_KEY)"
+            - name: BROZ_MESSAGING__MINIO_BUCKET
+              value: "broz-messages"
+            - name: BROZ_MESSAGING__MINIO_PUBLIC_URL
+              value: "https://media.brozr.com"
+            - name: BROZ_MESSAGING__LIVERELAY_API_URL
+              value: "http://SFU_NODE_PRIVATE_IP:8080"
+            - name: BROZ_MESSAGING__LIVERELAY_API_KEY
+              value: "$(LIVERELAY_API_KEY)"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broz-messaging
+  namespace: broz-app
+spec:
+  selector:
+    app: broz-messaging
+  ports:
+    - port: 3004
+      targetPort: 3004

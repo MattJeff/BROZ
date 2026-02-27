@@ -1,0 +1,23 @@
+[package]
+name = "broz-analytics"
+version = "0.1.0"
+edition = "2021"
+description = "BROZ Analytics Service - Event ingestion, DAU/WAU/MAU, session duration"
+
+[dependencies]
+axum = { workspace = true }
+diesel = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+config = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+lapin = { workspace = true }
+tower-http = { workspace = true }
+futures-lite = "2"
+broz-shared = { workspace = true }

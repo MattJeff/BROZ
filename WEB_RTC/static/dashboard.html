@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiveRelay — Dashboard</title>
+  <style>
+    /* ================================================================
+       RESET & BASE
+       ================================================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #09090b;
+      --bg-card: #18181b;
+      --bg-elevated: #1c1c20;
+      --border: #27272a;
+      --border-hover: #3f3f46;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --text-dim: #71717a;
+      --blue: #3b82f6;
+      --blue-hover: #2563eb;
+      --blue-bg: rgba(59, 130, 246, 0.12);
+      --violet: #8b5cf6;
+      --violet-bg: rgba(139, 92, 246, 0.12);
+      --green: #22c55e;
+      --green-hover: #16a34a;
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --red: #ef4444;
+      --red-hover: #dc2626;
+      --red-bg: rgba(239, 68, 68, 0.12);
+      --orange: #f59e0b;
+      --mono: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-xs: 6px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --transition: 0.2s ease;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ================================================================
+       TOAST NOTIFICATIONS
+       ================================================================ */
+    #toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+
+    .toast {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.85rem;
+      box-shadow: var(--shadow);
+      animation: toastIn 0.3s ease forwards;
+      max-width: 380px;
+    }
+
+    .toast.removing {
+      animation: toastOut 0.25s ease forwards;
+    }
+
+    .toast-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .toast.success .toast-icon { background: var(--green-bg); color: var(--green); }
+    .toast.error .toast-icon { background: var(--red-bg); color: var(--red); }
+    .toast.info .toast-icon { background: var(--blue-bg); color: var(--blue); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(40px) scale(0.95); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateX(0) scale(1); }
+      to { opacity: 0; transform: translateX(40px) scale(0.95); }
+    }
+
+    /* ================================================================
+       LOGIN SCREEN
+       ================================================================ */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .login-logo {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .login-logo span { color: var(--blue); }
+
+    .login-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+
+    .login-error {
+      display: none;
+      background: var(--red-bg);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: var(--red);
+      font-size: 0.82rem;
+      padding: 0.6rem 0.9rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+      text-align: left;
+    }
+
+    .login-error.visible { display: block; }
+
+    .login-input {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: var(--mono);
+      outline: none;
+      transition: border-color var(--transition);
+      margin-bottom: 1rem;
+    }
+
+    .login-input::placeholder { color: var(--text-dim); }
+    .login-input:focus { border-color: var(--blue); }
+
+    .login-btn {
+      width: 100%;
+      padding: 0.7rem;
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition);
+      font-family: var(--sans);
+    }
+
+    .login-btn:hover { background: var(--blue-hover); }
+
+    .login-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .login-link {
+      display: inline-block;
+      margin-top: 1.25rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+
+    .login-link:hover { color: var(--blue); }
+
+    /* ================================================================
+       DASHBOARD LAYOUT
+       ================================================================ */
+    #dashboard-screen { display: none; }
+
+    .dash-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .dash-header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .dash-logo {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--text);
+    }
+
+    .dash-logo span { color: var(--blue); }
+
+    .dash-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      padding-left: 1rem;
+      border-left: 1px solid var(--border);
+    }
+
+    .dash-header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .server-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .server-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+
+    .server-dot.ok { background: var(--green); }
+    .server-dot.down { background: var(--red); }
+
+    .api-key-display {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-family: var(--mono);
+      color: var(--text-muted);
+      padding: 0.3rem 0.65rem;
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .api-key-display button {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.72rem;
+      padding: 0 0.25rem;
+      font-family: var(--sans);
+      transition: color var(--transition);
+    }
+
+    .api-key-display button:hover { color: var(--blue); }
+
+    .btn-sm {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: var(--sans);
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+
+    .btn-sm:hover {
+      border-color: var(--border-hover);
+      color: var(--text);
+    }
+
+    .btn-sm.danger { color: var(--red); border-color: rgba(239, 68, 68, 0.3); }
+    .btn-sm.danger:hover { background: var(--red-bg); border-color: var(--red); }
+
+    /* ================================================================
+       MAIN CONTENT
+       ================================================================ */
+    .dash-main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* ================================================================
+       STATS BAR
+       ================================================================ */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.03em;
+    }
+
+    .stat-value.healthy { color: var(--green); }
+    .stat-value.down { color: var(--red); }
+    .stat-value.loading { color: var(--text-dim); font-size: 1rem; }
+
+    /* ================================================================
+       SECTION
+       ================================================================ */
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* ================================================================
+       BUTTONS
+       ================================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition), opacity var(--transition), transform 0.1s;
+      white-space: nowrap;
+      font-family: var(--sans);
+    }
+
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--blue-hover); }
+
+    .btn-violet { background: var(--violet); color: #fff; }
+    .btn-violet:hover:not(:disabled) { background: #7c3aed; }
+
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-success:hover:not(:disabled) { background: var(--green-hover); }
+
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: var(--red-hover); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-outline:hover:not(:disabled) {
+      border-color: var(--border-hover);
+      color: var(--text);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 0.4rem 0.6rem;
+    }
+
+    .btn-ghost:hover:not(:disabled) { color: var(--text); background: rgba(255,255,255,0.05); }
+
+    /* ================================================================
+       TABLE
+       ================================================================ */
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr {
+      transition: background var(--transition);
+    }
+
+    tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+    tbody tr:hover { background: rgba(255, 255, 255, 0.04); }
+
+    tbody td {
+      padding: 0.7rem 0.75rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(39, 39, 42, 0.5);
+      vertical-align: middle;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    /* ================================================================
+       BADGES
+       ================================================================ */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-broadcast {
+      background: var(--blue-bg);
+      color: var(--blue);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    .badge-call {
+      background: var(--violet-bg);
+      color: var(--violet);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+    }
+
+    .badge-healthy {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+
+    .badge-error {
+      background: var(--red-bg);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+
+    /* ================================================================
+       ROOM ID
+       ================================================================ */
+    .room-id {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--text);
+    }
+
+    .room-id-text {
+      cursor: default;
+    }
+
+    .room-id .copy-mini {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.7rem;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: all var(--transition);
+      font-family: var(--sans);
+    }
+
+    .room-id .copy-mini:hover { color: var(--blue); background: var(--blue-bg); }
+
+    .room-id .copy-mini.copied { color: var(--green); }
+
+    /* ================================================================
+       ACTION BUTTONS IN TABLE
+       ================================================================ */
+    .row-actions {
+      display: flex;
+      gap: 0.35rem;
+    }
+
+    .row-actions .btn-sm {
+      padding: 0.3rem 0.55rem;
+      font-size: 0.75rem;
+    }
+
+    /* ================================================================
+       MODAL
+       ================================================================ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 5000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: var(--shadow);
+      animation: modalIn 0.25s ease;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .modal-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
+
+    .modal-field {
+      margin-bottom: 1rem;
+    }
+
+    .modal-field label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .modal-field input,
+    .modal-field select {
+      width: 100%;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.88rem;
+      font-family: var(--mono);
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .modal-field select {
+      font-family: var(--sans);
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      padding-right: 2.5rem;
+    }
+
+    .modal-field select option {
+      background: var(--bg-card);
+      color: var(--text);
+    }
+
+    .modal-field input:focus,
+    .modal-field select:focus {
+      border-color: var(--blue);
+    }
+
+    .modal-field input::placeholder { color: var(--text-dim); }
+
+    .token-display-block {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .token-display-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+    }
+
+    .token-display-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .token-display-value {
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      word-break: break-all;
+      line-height: 1.4;
+      max-height: 3.5rem;
+      overflow-y: auto;
+    }
+
+    .token-display-row .btn-sm { flex-shrink: 0; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* ================================================================
+       API KEYS SECTION
+       ================================================================ */
+    .key-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .key-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.9rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+    }
+
+    .key-item-name {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .key-item-value {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+
+    /* ================================================================
+       QUICK START
+       ================================================================ */
+    .code-block {
+      position: relative;
+      background: #0c0c0f;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .code-block pre {
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.8;
+      color: #c9d1d9;
+      margin: 0;
+    }
+
+    .code-block .copy-code-btn {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      background: var(--border);
+      border: none;
+      border-radius: var(--radius-xs);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      font-family: var(--sans);
+    }
+
+    .code-block .copy-code-btn:hover { background: var(--blue); color: #fff; }
+
+    .quickstart-links {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .quickstart-links a {
+      color: var(--blue);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: color var(--transition);
+    }
+
+    .quickstart-links a:hover { color: var(--text); }
+
+    /* ================================================================
+       SPINNER
+       ================================================================ */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ================================================================
+       RESPONSIVE
+       ================================================================ */
+    @media (max-width: 768px) {
+      .stats-bar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .dash-header {
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+      }
+
+      .dash-header-right {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+
+      .api-key-display { font-size: 0.7rem; }
+
+      .table-wrapper { margin: 0 -1.5rem; padding: 0; }
+
+      table, thead, tbody, tr, td {
+        display: block;
+      }
+
+      thead { display: none; }
+
+      tbody tr {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg) !important;
+      }
+
+      tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.35rem 0;
+        border-bottom: none;
+      }
+
+      tbody td::before {
+        content: attr(data-label);
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .row-actions {
+        justify-content: flex-end;
+        width: 100%;
+        margin-top: 0.25rem;
+      }
+
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .dash-main { padding: 1.25rem 1rem 3rem; }
+
+      .modal-card { padding: 1.25rem; }
+    }
+
+    @media (max-width: 480px) {
+      .stats-bar { grid-template-columns: 1fr 1fr; }
+      .stat-value { font-size: 1.4rem; }
+      .section-actions { width: 100%; }
+      .section-actions .btn { flex: 1; justify-content: center; }
+    }
+
+    /* ================================================================
+       SCROLLBAR
+       ================================================================ */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+  </style>
+</head>
+<body>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- ================================================================
+       LOGIN SCREEN
+       ================================================================ -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">Live<span>Relay</span></div>
+      <p class="login-subtitle">Dashboard</p>
+
+      <div class="login-error" id="login-error"></div>
+
+      <input
+        type="password"
+        class="login-input"
+        id="login-key-input"
+        placeholder="lr_..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+
+      <button class="login-btn" id="login-btn">Connect</button>
+
+      <a href="/" class="login-link">Don't have a key? Get started &rarr;</a>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       DASHBOARD SCREEN
+       ================================================================ -->
+  <div id="dashboard-screen">
+
+    <!-- Header -->
+    <header class="dash-header">
+      <div class="dash-header-left">
+        <div class="dash-logo">Live<span>Relay</span></div>
+        <span class="dash-label">Dashboard</span>
+      </div>
+      <div class="dash-header-right">
+        <div class="server-badge">
+          <span class="server-dot" id="header-server-dot"></span>
+          <span id="header-server-text">Checking...</span>
+        </div>
+        <div class="api-key-display">
+          <span id="api-key-masked"></span>
+          <button id="btn-toggle-key" title="Show/Hide key">Show</button>
+          <button id="btn-copy-key" title="Copy API key">Copy</button>
+        </div>
+        <button class="btn-sm danger" id="btn-logout">Logout</button>
+      </div>
+    </header>
+
+    <main class="dash-main">
+
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat-card">
+          <span class="stat-label">Rooms Active</span>
+          <span class="stat-value" id="stat-rooms">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Publishers</span>
+          <span class="stat-value" id="stat-publishers">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Subscribers</span>
+          <span class="stat-value" id="stat-subscribers">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Server Status</span>
+          <span class="stat-value loading" id="stat-server">Checking...</span>
+        </div>
+      </div>
+
+      <!-- Rooms Section -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Rooms</h2>
+          <div class="section-actions">
+            <button class="btn btn-primary" id="btn-create-broadcast">+ Broadcast Room</button>
+            <button class="btn btn-violet" id="btn-create-call">+ Call Room</button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table id="rooms-table">
+            <thead>
+              <tr>
+                <th>Room ID</th>
+                <th>Type</th>
+                <th>Publishers</th>
+                <th>Subscribers</th>
+                <th>Age</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rooms-tbody">
+            </tbody>
+          </table>
+          <div class="empty-state" id="rooms-empty">
+            No active rooms. Create one to get started.
+          </div>
+        </div>
+      </section>
+
+      <!-- API Keys Section -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">API Keys</h2>
+          <div class="section-actions">
+            <button class="btn btn-outline" id="btn-create-key">+ Create New Key</button>
+          </div>
+        </div>
+
+        <p style="font-size:0.82rem; color:var(--text-dim); margin-bottom:0.75rem;">
+          Keys created during this session are shown below. The full key is only displayed once at creation time.
+        </p>
+
+        <div class="key-list" id="key-list">
+          <div class="empty-state" id="keys-empty" style="padding:1.5rem;">
+            No keys created yet this session.
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Start Section -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Quick Start</h2>
+        </div>
+
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+          Minimal code to get a broadcast stream running:
+        </p>
+
+        <div class="code-block">
+          <button class="copy-code-btn" onclick="copyQuickStart()">Copy</button>
+          <pre id="quickstart-code"><code>// 1. Create a room (your backend)
+const room = await fetch('/v1/rooms', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer lr_your_key',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ room_type: 'broadcast' })
+}).then(r => r.json());
+
+// 2. Publish (streamer's browser)
+const lr = new LiveRelay('https://your-server.com');
+await lr.publish({
+  token: room.tokens.publish,
+  video: true,
+  audio: true
+});
+
+// 3. Subscribe (viewer's browser)
+await lr.subscribe({
+  token: room.tokens.subscribe,
+  element: videoEl
+});</code></pre>
+        </div>
+
+        <div class="quickstart-links">
+          <a href="/docs">Full Documentation &rarr;</a>
+          <a href="/playground">Open Playground &rarr;</a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================================================================
+       MODAL: Create Room Result
+       ================================================================ -->
+  <div class="modal-overlay" id="modal-room-created">
+    <div class="modal-card">
+      <div class="modal-title">Room Created</div>
+      <div class="modal-desc" id="modal-room-desc">Your room is ready. Copy the tokens below.</div>
+
+      <div id="modal-room-tokens"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-room-created')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL: Delete Confirmation
+       ================================================================ -->
+  <div class="modal-overlay" id="modal-delete-confirm">
+    <div class="modal-card">
+      <div class="modal-title">Delete Room</div>
+      <div class="modal-desc">Are you sure you want to delete this room? This action cannot be undone.</div>
+
+      <div style="font-family:var(--mono); font-size:0.85rem; color:var(--text-muted); padding:0.6rem; background:var(--bg); border-radius:var(--radius-sm); margin-bottom:0.5rem;" id="modal-delete-room-id"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-delete-confirm')">Cancel</button>
+        <button class="btn btn-danger" id="btn-confirm-delete">Delete Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL: Get Token
+       ================================================================ -->
+  <div class="modal-overlay" id="modal-get-token">
+    <div class="modal-card">
+      <div class="modal-title">Get Token</div>
+      <div class="modal-desc" id="modal-token-desc">Select a role and generate a token for this room.</div>
+
+      <div class="modal-field">
+        <label for="modal-token-role">Role</label>
+        <select id="modal-token-role">
+          <option value="publish">publish</option>
+          <option value="subscribe">subscribe</option>
+          <option value="call">call</option>
+        </select>
+      </div>
+
+      <div id="modal-token-result" style="display:none;"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-get-token')">Close</button>
+        <button class="btn btn-primary" id="btn-generate-token">Generate Token</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL: Create API Key
+       ================================================================ -->
+  <div class="modal-overlay" id="modal-create-key">
+    <div class="modal-card">
+      <div class="modal-title">Create API Key</div>
+      <div class="modal-desc">Give your key a name to identify it later.</div>
+
+      <div class="modal-field">
+        <label for="modal-key-name">Key Name</label>
+        <input type="text" id="modal-key-name" placeholder="e.g. production, staging, test...">
+      </div>
+
+      <div id="modal-key-result" style="display:none;"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-create-key')">Close</button>
+        <button class="btn btn-primary" id="btn-confirm-create-key">Create Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       JAVASCRIPT
+       ================================================================ -->
+  <script>
+    // ---------------------------------------------------------------
+    // API Wrapper
+    // ---------------------------------------------------------------
+    async function api(path, options = {}) {
+      const apiKey = localStorage.getItem('liverelay_api_key');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+      const resp = await fetch(path, {
+        ...options,
+        headers
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        const e = new Error(err.error?.message || err.message || `Request failed (${resp.status})`);
+        e.status = resp.status;
+        e.code = err.error?.code || '';
+        throw e;
+      }
+      return resp.json();
+    }
+
+    // ---------------------------------------------------------------
+    // Toast Notifications
+    // ---------------------------------------------------------------
+    function toast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+
+      const icons = { success: '\u2713', error: '\u2717', info: 'i' };
+      el.innerHTML = `
+        <span class="toast-icon">${icons[type] || icons.info}</span>
+        <span>${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(el);
+
+      setTimeout(() => {
+        el.classList.add('removing');
+        el.addEventListener('animationend', () => el.remove());
+      }, 3500);
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    // ---------------------------------------------------------------
+    // Clipboard
+    // ---------------------------------------------------------------
+    async function copyToClipboard(text, feedbackEl) {
+      try {
+        await navigator.clipboard.writeText(text);
+        if (feedbackEl) {
+          const orig = feedbackEl.textContent;
+          feedbackEl.textContent = 'Copied!';
+          feedbackEl.classList.add('copied');
+          setTimeout(() => {
+            feedbackEl.textContent = orig;
+            feedbackEl.classList.remove('copied');
+          }, 1500);
+        }
+        toast('Copied to clipboard', 'success');
+      } catch {
+        toast('Failed to copy', 'error');
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Time formatting
+    // ---------------------------------------------------------------
+    function formatAge(seconds) {
+      if (seconds < 60) return `${seconds}s ago`;
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      return `${Math.floor(seconds / 86400)}d ago`;
+    }
+
+    // ---------------------------------------------------------------
+    // Masking
+    // ---------------------------------------------------------------
+    function maskKey(key) {
+      if (!key || key.length < 12) return '****';
+      return key.slice(0, 3) + '****...' + key.slice(-4);
+    }
+
+    // ---------------------------------------------------------------
+    // Modal helpers
+    // ---------------------------------------------------------------
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+    });
+
+    // Close modals on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+      }
+    });
+
+    // ---------------------------------------------------------------
+    // State
+    // ---------------------------------------------------------------
+    let showingFullKey = false;
+    let currentRooms = [];
+    let sessionKeys = [];
+    let refreshInterval = null;
+    let deleteTargetId = null;
+    let tokenTargetId = null;
+
+    // ---------------------------------------------------------------
+    // Login Flow
+    // ---------------------------------------------------------------
+    const loginScreen = document.getElementById('login-screen');
+    const dashboardScreen = document.getElementById('dashboard-screen');
+    const loginInput = document.getElementById('login-key-input');
+    const loginBtn = document.getElementById('login-btn');
+    const loginError = document.getElementById('login-error');
+
+    function showLogin() {
+      loginScreen.style.display = 'flex';
+      dashboardScreen.style.display = 'none';
+      stopAutoRefresh();
+    }
+
+    function showDashboard() {
+      loginScreen.style.display = 'none';
+      dashboardScreen.style.display = 'block';
+      updateKeyDisplay();
+      refreshAll();
+      startAutoRefresh();
+    }
+
+    // Check if already logged in
+    if (localStorage.getItem('liverelay_api_key')) {
+      showDashboard();
+    }
+
+    loginBtn.addEventListener('click', doLogin);
+    loginInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    async function doLogin() {
+      const key = loginInput.value.trim();
+      if (!key) {
+        showLoginError('Please enter your API key.');
+        return;
+      }
+
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+      loginError.classList.remove('visible');
+
+      try {
+        localStorage.setItem('liverelay_api_key', key);
+        await api('/v1/rooms');
+        showDashboard();
+        toast('Connected successfully', 'success');
+      } catch (err) {
+        localStorage.removeItem('liverelay_api_key');
+        if (err.status === 401) {
+          showLoginError('Invalid API key. Please check and try again.');
+        } else {
+          showLoginError(err.message || 'Failed to connect to server.');
+        }
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Connect';
+      }
+    }
+
+    function showLoginError(msg) {
+      loginError.textContent = msg;
+      loginError.classList.add('visible');
+    }
+
+    // ---------------------------------------------------------------
+    // Logout
+    // ---------------------------------------------------------------
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      localStorage.removeItem('liverelay_api_key');
+      showingFullKey = false;
+      currentRooms = [];
+      sessionKeys = [];
+      loginInput.value = '';
+      loginError.classList.remove('visible');
+      showLogin();
+      toast('Logged out', 'info');
+    });
+
+    // ---------------------------------------------------------------
+    // API Key display
+    // ---------------------------------------------------------------
+    function updateKeyDisplay() {
+      const key = localStorage.getItem('liverelay_api_key') || '';
+      const el = document.getElementById('api-key-masked');
+      const toggleBtn = document.getElementById('btn-toggle-key');
+
+      if (showingFullKey) {
+        el.textContent = key;
+        toggleBtn.textContent = 'Hide';
+      } else {
+        el.textContent = maskKey(key);
+        toggleBtn.textContent = 'Show';
+      }
+    }
+
+    document.getElementById('btn-toggle-key').addEventListener('click', () => {
+      showingFullKey = !showingFullKey;
+      updateKeyDisplay();
+    });
+
+    document.getElementById('btn-copy-key').addEventListener('click', () => {
+      const key = localStorage.getItem('liverelay_api_key') || '';
+      copyToClipboard(key, document.getElementById('btn-copy-key'));
+    });
+
+    // ---------------------------------------------------------------
+    // Auto-refresh
+    // ---------------------------------------------------------------
+    function startAutoRefresh() {
+      stopAutoRefresh();
+      refreshInterval = setInterval(() => {
+        if (!document.hidden) {
+          refreshAll();
+        }
+      }, 5000);
+    }
+
+    function stopAutoRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && localStorage.getItem('liverelay_api_key')) {
+        refreshAll();
+      }
+    });
+
+    // ---------------------------------------------------------------
+    // Refresh data
+    // ---------------------------------------------------------------
+    async function refreshAll() {
+      await Promise.allSettled([refreshRooms(), refreshHealth()]);
+    }
+
+    async function refreshRooms() {
+      try {
+        const rooms = await api('/v1/rooms');
+        currentRooms = Array.isArray(rooms) ? rooms : [];
+        renderRooms();
+        updateStats();
+      } catch (err) {
+        if (err.status === 401) {
+          localStorage.removeItem('liverelay_api_key');
+          showLogin();
+          toast('Session expired. Please log in again.', 'error');
+        }
+      }
+    }
+
+    async function refreshHealth() {
+      const dot = document.getElementById('header-server-dot');
+      const text = document.getElementById('header-server-text');
+      const statServer = document.getElementById('stat-server');
+
+      try {
+        const data = await fetch('/health').then(r => r.json());
+        if (data.status === 'ok') {
+          dot.className = 'server-dot ok';
+          text.textContent = `v${data.version || '?'}`;
+          statServer.textContent = 'Healthy';
+          statServer.className = 'stat-value healthy';
+        } else {
+          throw new Error('not ok');
+        }
+      } catch {
+        dot.className = 'server-dot down';
+        text.textContent = 'Offline';
+        statServer.textContent = 'Down';
+        statServer.className = 'stat-value down';
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('stat-rooms').textContent = currentRooms.length;
+      document.getElementById('stat-publishers').textContent = currentRooms.reduce((s, r) => s + (r.publisher_count || 0), 0);
+      document.getElementById('stat-subscribers').textContent = currentRooms.reduce((s, r) => s + (r.subscriber_count || 0), 0);
+    }
+
+    // ---------------------------------------------------------------
+    // Render Rooms Table
+    // ---------------------------------------------------------------
+    function renderRooms() {
+      const tbody = document.getElementById('rooms-tbody');
+      const empty = document.getElementById('rooms-empty');
+
+      if (currentRooms.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+
+      tbody.innerHTML = currentRooms.map(room => {
+        const shortId = room.room_id.slice(0, 8);
+        const typeBadge = room.room_type === 'broadcast'
+          ? '<span class="badge badge-broadcast">broadcast</span>'
+          : '<span class="badge badge-call">call</span>';
+
+        return `
+          <tr>
+            <td data-label="Room ID">
+              <span class="room-id">
+                <span class="room-id-text" title="${escapeHtml(room.room_id)}">${escapeHtml(shortId)}</span>
+                <button class="copy-mini" onclick="copyToClipboard('${escapeHtml(room.room_id)}', this)">Copy</button>
+              </span>
+            </td>
+            <td data-label="Type">${typeBadge}</td>
+            <td data-label="Publishers">${room.publisher_count || 0}</td>
+            <td data-label="Subscribers">${room.subscriber_count || 0}</td>
+            <td data-label="Age">${formatAge(room.created_at_secs || 0)}</td>
+            <td data-label="Actions">
+              <div class="row-actions">
+                <button class="btn-sm" onclick="openGetToken('${escapeHtml(room.room_id)}', '${escapeHtml(room.room_type)}')">Get Token</button>
+                <button class="btn-sm danger" onclick="openDeleteConfirm('${escapeHtml(room.room_id)}')">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ---------------------------------------------------------------
+    // Create Room
+    // ---------------------------------------------------------------
+    document.getElementById('btn-create-broadcast').addEventListener('click', () => createRoom('broadcast'));
+    document.getElementById('btn-create-call').addEventListener('click', () => createRoom('call'));
+
+    async function createRoom(roomType) {
+      const btn = document.getElementById(roomType === 'broadcast' ? 'btn-create-broadcast' : 'btn-create-call');
+      const origHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Creating...';
+
+      try {
+        const data = await api('/v1/rooms', {
+          method: 'POST',
+          body: JSON.stringify({ room_type: roomType })
+        });
+
+        // Show modal with tokens
+        showRoomCreatedModal(data, roomType);
+        toast(`${roomType} room created`, 'success');
+
+        // Refresh rooms list
+        await refreshRooms();
+      } catch (err) {
+        toast(`Failed to create room: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+      }
+    }
+
+    function showRoomCreatedModal(data, roomType) {
+      const desc = document.getElementById('modal-room-desc');
+      const tokensDiv = document.getElementById('modal-room-tokens');
+
+      desc.textContent = `Room ${data.id} created successfully. Copy the tokens below.`;
+
+      let html = '';
+
+      if (roomType === 'broadcast') {
+        html = `
+          <div class="token-display-block">
+            <div class="token-display-label">Publish Token</div>
+            <div class="token-display-row">
+              <div class="token-display-value" id="created-publish-token">${escapeHtml(data.tokens.publish)}</div>
+              <button class="btn-sm" onclick="copyToClipboard(document.getElementById('created-publish-token').textContent, this)">Copy</button>
+            </div>
+          </div>
+          <div class="token-display-block">
+            <div class="token-display-label">Subscribe Token</div>
+            <div class="token-display-row">
+              <div class="token-display-value" id="created-subscribe-token">${escapeHtml(data.tokens.subscribe)}</div>
+              <button class="btn-sm" onclick="copyToClipboard(document.getElementById('created-subscribe-token').textContent, this)">Copy</button>
+            </div>
+          </div>
+        `;
+      } else {
+        html = `
+          <div class="token-display-block">
+            <div class="token-display-label">Caller Token</div>
+            <div class="token-display-row">
+              <div class="token-display-value" id="created-caller-token">${escapeHtml(data.tokens.caller)}</div>
+              <button class="btn-sm" onclick="copyToClipboard(document.getElementById('created-caller-token').textContent, this)">Copy</button>
+            </div>
+          </div>
+          <div class="token-display-block">
+            <div class="token-display-label">Callee Token</div>
+            <div class="token-display-row">
+              <div class="token-display-value" id="created-callee-token">${escapeHtml(data.tokens.callee)}</div>
+              <button class="btn-sm" onclick="copyToClipboard(document.getElementById('created-callee-token').textContent, this)">Copy</button>
+            </div>
+          </div>
+        `;
+      }
+
+      tokensDiv.innerHTML = html;
+      openModal('modal-room-created');
+    }
+
+    // ---------------------------------------------------------------
+    // Delete Room
+    // ---------------------------------------------------------------
+    function openDeleteConfirm(roomId) {
+      deleteTargetId = roomId;
+      document.getElementById('modal-delete-room-id').textContent = roomId;
+      openModal('modal-delete-confirm');
+    }
+
+    document.getElementById('btn-confirm-delete').addEventListener('click', async () => {
+      if (!deleteTargetId) return;
+
+      const btn = document.getElementById('btn-confirm-delete');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Deleting...';
+
+      try {
+        await api(`/v1/rooms/${deleteTargetId}`, { method: 'DELETE' });
+        toast('Room deleted', 'success');
+        closeModal('modal-delete-confirm');
+        await refreshRooms();
+      } catch (err) {
+        toast(`Failed to delete room: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Delete Room';
+        deleteTargetId = null;
+      }
+    });
+
+    // ---------------------------------------------------------------
+    // Get Token
+    // ---------------------------------------------------------------
+    function openGetToken(roomId, roomType) {
+      tokenTargetId = roomId;
+      const desc = document.getElementById('modal-token-desc');
+      const roleSelect = document.getElementById('modal-token-role');
+      const resultDiv = document.getElementById('modal-token-result');
+
+      desc.textContent = `Generate a token for room ${roomId.slice(0, 8)}...`;
+      resultDiv.style.display = 'none';
+      resultDiv.innerHTML = '';
+
+      // Adjust available roles based on room type
+      roleSelect.innerHTML = '';
+      if (roomType === 'broadcast') {
+        roleSelect.innerHTML = `
+          <option value="publish">publish</option>
+          <option value="subscribe">subscribe</option>
+        `;
+      } else {
+        roleSelect.innerHTML = `
+          <option value="call">call</option>
+        `;
+      }
+
+      openModal('modal-get-token');
+    }
+
+    document.getElementById('btn-generate-token').addEventListener('click', async () => {
+      if (!tokenTargetId) return;
+
+      const role = document.getElementById('modal-token-role').value;
+      const btn = document.getElementById('btn-generate-token');
+      const resultDiv = document.getElementById('modal-token-result');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+      try {
+        const data = await api(`/v1/rooms/${tokenTargetId}/token`, {
+          method: 'POST',
+          body: JSON.stringify({ role })
+        });
+
+        const token = data.token || JSON.stringify(data);
+
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+          <div class="token-display-block">
+            <div class="token-display-label">${escapeHtml(role)} Token</div>
+            <div class="token-display-row">
+              <div class="token-display-value" id="generated-token-value">${escapeHtml(token)}</div>
+              <button class="btn-sm" onclick="copyToClipboard(document.getElementById('generated-token-value').textContent, this)">Copy</button>
+            </div>
+          </div>
+        `;
+
+        toast('Token generated', 'success');
+      } catch (err) {
+        toast(`Failed to generate token: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Token';
+      }
+    });
+
+    // ---------------------------------------------------------------
+    // API Keys
+    // ---------------------------------------------------------------
+    document.getElementById('btn-create-key').addEventListener('click', () => {
+      document.getElementById('modal-key-name').value = '';
+      document.getElementById('modal-key-result').style.display = 'none';
+      document.getElementById('modal-key-result').innerHTML = '';
+      document.getElementById('btn-confirm-create-key').style.display = '';
+      openModal('modal-create-key');
+    });
+
+    document.getElementById('btn-confirm-create-key').addEventListener('click', async () => {
+      const name = document.getElementById('modal-key-name').value.trim();
+      if (!name) {
+        toast('Please enter a key name', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btn-confirm-create-key');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Creating...';
+
+      try {
+        const data = await api('/v1/keys', {
+          method: 'POST',
+          body: JSON.stringify({ name })
+        });
+
+        const key = data.key || data.api_key || JSON.stringify(data);
+
+        // Show the key once
+        const resultDiv = document.getElementById('modal-key-result');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+          <div style="background:var(--red-bg); border:1px solid rgba(239,68,68,0.25); border-radius:var(--radius-sm); padding:0.6rem 0.9rem; margin-bottom:0.75rem;">
+            <strong style="color:var(--red); font-size:0.82rem;">Save this key now! It will not be shown again.</strong>
+          </div>
+          <div class="token-display-block">
+            <div class="token-display-label">${escapeHtml(name)}</div>
+            <div class="token-display-row">
+              <div class="token-display-value" id="new-key-value">${escapeHtml(key)}</div>
+              <button class="btn-sm" onclick="copyToClipboard(document.getElementById('new-key-value').textContent, this)">Copy</button>
+            </div>
+          </div>
+        `;
+
+        // Add to session list
+        sessionKeys.push({ name, key });
+        renderSessionKeys();
+
+        // Hide create button after showing key
+        btn.style.display = 'none';
+
+        toast('API key created', 'success');
+      } catch (err) {
+        toast(`Failed to create key: ${err.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create Key';
+      }
+    });
+
+    function renderSessionKeys() {
+      const list = document.getElementById('key-list');
+      const empty = document.getElementById('keys-empty');
+
+      if (sessionKeys.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+
+      // Keep empty state element, clear everything else
+      list.innerHTML = '';
+      list.appendChild(empty);
+
+      sessionKeys.forEach((k, i) => {
+        const item = document.createElement('div');
+        item.className = 'key-item';
+        item.innerHTML = `
+          <span class="key-item-name">${escapeHtml(k.name)}</span>
+          <span class="key-item-value">${maskKey(k.key)}</span>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // Quick Start copy
+    // ---------------------------------------------------------------
+    function copyQuickStart() {
+      const code = document.getElementById('quickstart-code').textContent;
+      const btn = document.querySelector('.code-block .copy-code-btn');
+      copyToClipboard(code, btn);
+    }
+
+    // ---------------------------------------------------------------
+    // Init
+    // ---------------------------------------------------------------
+    renderSessionKeys();
+  </script>
+
+</body>
+</html>

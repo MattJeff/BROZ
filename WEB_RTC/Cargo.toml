@@ -1,0 +1,41 @@
+[package]
+name = "webrtc-sfu"
+version = "0.3.0"
+edition = "2021"
+
+[dependencies]
+webrtc = "0.11"
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+bytes = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio-util = { version = "0.7", features = ["rt"] }
+tower-http = { version = "0.6", features = ["cors", "fs"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+jsonwebtoken = "9"
+uuid = { version = "1", features = ["v4"] }
+rand = "0.8"
+
+# TURN server (embedded, from webrtc-rs ecosystem)
+turn = "0.8"
+util = { version = "0.9", package = "webrtc-util", features = ["vnet"] }
+
+# TLS
+rustls = { version = "0.23", features = ["ring"] }
+rustls-pemfile = "2"
+
+# Config
+dotenvy = "0.15"
+
+# Events / Webhooks / SSE / Analytics
+chrono = { version = "0.4", features = ["serde"] }
+reqwest = { version = "0.12", features = ["json"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+subtle = "2"
+async-stream = "0.3"
+futures = "0.3"

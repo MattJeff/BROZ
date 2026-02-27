@@ -1,0 +1,102 @@
+# ============================================================================
+# LiveRelay SFU — docker-compose for production VPS deployment
+# ============================================================================
+#
+# Two deployment profiles:
+#
+#   1. Embedded TURN (default):
+#      TURN runs inside the SFU binary. Simpler, fewer containers.
+#      docker compose up -d
+#
+#   2. External TURN (coturn sidecar):
+#      TURN runs as a separate coturn container. More scalable.
+#      docker compose --profile coturn up -d
+#
+# ============================================================================
+
+services:
+
+  # ── LiveRelay SFU ──────────────────────────────────────────────────────
+
+  sfu:
+    build: .
+    image: liverelay:latest
+    container_name: liverelay-sfu
+    restart: unless-stopped
+    ports:
+      - "8080:8080"           # HTTP API + signaling
+      - "443:8080"            # HTTPS (when TLS enabled, remap to 443)
+      - "3478:3478/udp"       # Embedded TURN (UDP)
+    env_file:
+      - .env
+    environment:
+      - LIVERELAY_BIND_ADDR=0.0.0.0:8080
+    volumes:
+      # Mount TLS certificates (if using native TLS).
+      - ./certs:/app/certs:ro
+      # Persist static files if needed.
+      - ./static:/app/static:ro
+    networks:
+      - liverelay
+    # The SFU needs host networking for WebRTC UDP traffic in production.
+    # Uncomment the line below and remove the `ports` section if you prefer
+    # host networking:
+    # network_mode: host
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Coturn TURN server (optional — use --profile coturn) ───────────────
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: liverelay-coturn
+    restart: unless-stopped
+    profiles:
+      - coturn
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"       # TURNS (TLS)
+      - "49152-49200:49152-49200/udp"  # Relay ports range
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ./certs:/etc/coturn/certs:ro
+    networks:
+      - liverelay
+    healthcheck:
+      test: ["CMD", "turnutils_uclient", "-T", "-u", "liverelay", "-w", "liverelay-secret", "127.0.0.1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Caddy reverse proxy (optional — use --profile caddy) ──────────────
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: liverelay-caddy
+    restart: unless-stopped
+    profiles:
+      - caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - liverelay
+    depends_on:
+      - sfu
+
+networks:
+  liverelay:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

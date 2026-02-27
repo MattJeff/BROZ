@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broz-user
+  namespace: broz-app
+  labels:
+    app: broz-user
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broz-user
+  template:
+    metadata:
+      labels:
+        app: broz-user
+    spec:
+      containers:
+        - name: broz-user
+          image: registry.brozr.com/broz-user:latest
+          ports:
+            - containerPort: 3002
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: BROZ_USER__JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: POSTGRES_PASSWORD
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: RABBITMQ_PASS
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: MINIO_SECRET_KEY
+            - name: BROZ_USER__PORT
+              value: "3002"
+            - name: BROZ_USER__DATABASE_URL
+              value: "postgres://brozadmin:$(POSTGRES_PASSWORD)@postgres.broz-data.svc.cluster.local:5432/broz_user"
+            - name: BROZ_USER__RABBITMQ_URL
+              value: "amqp://broz:$(RABBITMQ_PASS)@rabbitmq.broz-data.svc.cluster.local:5672/%2f"
+            - name: BROZ_USER__REDIS_URL
+              value: "redis://redis.broz-data.svc.cluster.local:6379"
+            - name: BROZ_USER__MINIO_ENDPOINT
+              value: "http://minio.broz-data.svc.cluster.local:9000"
+            - name: BROZ_USER__MINIO_ACCESS_KEY
+              value: "$(MINIO_ACCESS_KEY)"
+            - name: BROZ_USER__MINIO_SECRET_KEY
+              value: "$(MINIO_SECRET_KEY)"
+            - name: BROZ_USER__MINIO_BUCKET
+              value: "broz-photos"
+            - name: BROZ_USER__MINIO_PUBLIC_URL
+              value: "https://media.brozr.com"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broz-user
+  namespace: broz-app
+spec:
+  selector:
+    app: broz-user
+  ports:
+    - port: 3002
+      targetPort: 3002

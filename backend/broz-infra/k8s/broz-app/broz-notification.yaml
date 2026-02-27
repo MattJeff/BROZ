@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broz-notification
+  namespace: broz-app
+  labels:
+    app: broz-notification
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broz-notification
+  template:
+    metadata:
+      labels:
+        app: broz-notification
+    spec:
+      containers:
+        - name: broz-notification
+          image: registry.brozr.com/broz-notification:latest
+          ports:
+            - containerPort: 3005
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: BROZ_NOTIFICATION__JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: POSTGRES_PASSWORD
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: RABBITMQ_PASS
+            - name: BROZ_NOTIFICATION__PORT
+              value: "3005"
+            - name: BROZ_NOTIFICATION__DATABASE_URL
+              value: "postgres://brozadmin:$(POSTGRES_PASSWORD)@postgres.broz-data.svc.cluster.local:5432/broz_notification"
+            - name: BROZ_NOTIFICATION__RABBITMQ_URL
+              value: "amqp://broz:$(RABBITMQ_PASS)@rabbitmq.broz-data.svc.cluster.local:5672/%2f"
+            - name: BROZ_NOTIFICATION__REDIS_URL
+              value: "redis://redis.broz-data.svc.cluster.local:6379"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broz-notification
+  namespace: broz-app
+spec:
+  selector:
+    app: broz-notification
+  ports:
+    - port: 3005
+      targetPort: 3005

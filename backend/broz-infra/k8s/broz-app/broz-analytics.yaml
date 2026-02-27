@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broz-analytics
+  namespace: broz-app
+  labels:
+    app: broz-analytics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broz-analytics
+  template:
+    metadata:
+      labels:
+        app: broz-analytics
+    spec:
+      containers:
+        - name: broz-analytics
+          image: registry.brozr.com/broz-analytics:latest
+          ports:
+            - containerPort: 3007
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: BROZ_ANALYTICS__JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: POSTGRES_PASSWORD
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: RABBITMQ_PASS
+            - name: BROZ_ANALYTICS__PORT
+              value: "3007"
+            - name: BROZ_ANALYTICS__DATABASE_URL
+              value: "postgres://brozadmin:$(POSTGRES_PASSWORD)@postgres.broz-data.svc.cluster.local:5432/broz_analytics"
+            - name: BROZ_ANALYTICS__RABBITMQ_URL
+              value: "amqp://broz:$(RABBITMQ_PASS)@rabbitmq.broz-data.svc.cluster.local:5672/%2f"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broz-analytics
+  namespace: broz-app
+spec:
+  selector:
+    app: broz-analytics
+  ports:
+    - port: 3007
+      targetPort: 3007

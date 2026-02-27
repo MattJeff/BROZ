@@ -1,0 +1,37 @@
+# ============================================================================
+# Caddy reverse proxy for LiveRelay SFU
+# ============================================================================
+# Caddy provides automatic HTTPS via Let's Encrypt.
+# No TLS configuration needed in the SFU binary (LIVERELAY_TLS_ENABLED=false).
+#
+# Usage:
+#   docker compose --profile caddy up -d
+#
+# Replace sfu.example.com with your actual domain.
+# ============================================================================
+
+sfu.example.com {
+    # Reverse proxy to the SFU container.
+    reverse_proxy sfu:8080
+
+    # WebSocket support (for future SSE/WS endpoints).
+    @ws {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @ws sfu:8080
+
+    # Security headers.
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    }
+
+    # Logging.
+    log {
+        output stdout
+        format json
+    }
+}

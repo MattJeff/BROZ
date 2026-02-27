@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broz-gateway-config
+  namespace: broz-app
+data:
+  BROZ_GATEWAY__PORT: "3100"
+  BROZ_GATEWAY__REDIS_URL: "redis://redis.broz-data.svc.cluster.local:6379"
+  BROZ_GATEWAY__AUTH_URL: "http://broz-auth.broz-app.svc.cluster.local:3001"
+  BROZ_GATEWAY__USER_URL: "http://broz-user.broz-app.svc.cluster.local:3002"
+  BROZ_GATEWAY__MATCHING_URL: "http://broz-matching.broz-app.svc.cluster.local:3003"
+  BROZ_GATEWAY__MESSAGING_URL: "http://broz-messaging.broz-app.svc.cluster.local:3004"
+  BROZ_GATEWAY__NOTIFICATION_URL: "http://broz-notification.broz-app.svc.cluster.local:3005"
+  BROZ_GATEWAY__MODERATION_URL: "http://broz-moderation.broz-app.svc.cluster.local:3006"
+  BROZ_GATEWAY__ANALYTICS_URL: "http://broz-analytics.broz-app.svc.cluster.local:3007"
+  BROZ_GATEWAY__FREE_RPM: "600"
+  BROZ_GATEWAY__FREE_RPH: "10000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broz-gateway
+  namespace: broz-app
+  labels:
+    app: broz-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broz-gateway
+  template:
+    metadata:
+      labels:
+        app: broz-gateway
+    spec:
+      containers:
+        - name: broz-gateway
+          image: registry.brozr.com/broz-gateway:latest
+          ports:
+            - containerPort: 3100
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+          envFrom:
+            - configMapRef:
+                name: broz-gateway-config
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3100
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3100
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broz-gateway
+  namespace: broz-app
+spec:
+  selector:
+    app: broz-gateway
+  ports:
+    - port: 3100
+      targetPort: 3100

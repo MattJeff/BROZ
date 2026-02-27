@@ -1,0 +1,57 @@
+# Hetzner Cloud CSI StorageClass
+# Requires: hcloud-csi-driver installed on K3s
+# Install: kubectl apply -f https://raw.githubusercontent.com/hetznercloud/csi-driver/main/deploy/kubernetes/hcloud-csi.yml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: hcloud-volumes
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: csi.hetzner.cloud
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  type: local  # or "network" for network-attached volumes
+---
+# PostgreSQL PVC using Hetzner Cloud Volumes (20Gi for Phase 1)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: broz-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hcloud-volumes
+  resources:
+    requests:
+      storage: 20Gi
+---
+# MinIO PVC using Hetzner Cloud Volumes (20Gi for Phase 1)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: broz-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hcloud-volumes
+  resources:
+    requests:
+      storage: 20Gi
+---
+# Prometheus PVC (10Gi for metrics retention)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: broz-monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: hcloud-volumes
+  resources:
+    requests:
+      storage: 10Gi

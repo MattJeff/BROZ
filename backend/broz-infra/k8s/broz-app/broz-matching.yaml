@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broz-matching
+  namespace: broz-app
+  labels:
+    app: broz-matching
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broz-matching
+  template:
+    metadata:
+      labels:
+        app: broz-matching
+    spec:
+      containers:
+        - name: broz-matching
+          image: registry.brozr.com/broz-matching:latest
+          ports:
+            - containerPort: 3003
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: BROZ_MATCHING__JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: broz-app-secrets
+                  key: JWT_SECRET
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: POSTGRES_PASSWORD
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: broz-secrets
+                  key: RABBITMQ_PASS
+            - name: BROZ_MATCHING__PORT
+              value: "3003"
+            - name: BROZ_MATCHING__DATABASE_URL
+              value: "postgres://brozadmin:$(POSTGRES_PASSWORD)@postgres.broz-data.svc.cluster.local:5432/broz_matching"
+            - name: BROZ_MATCHING__RABBITMQ_URL
+              value: "amqp://broz:$(RABBITMQ_PASS)@rabbitmq.broz-data.svc.cluster.local:5672/%2f"
+            - name: BROZ_MATCHING__REDIS_URL
+              value: "redis://redis.broz-data.svc.cluster.local:6379"
+            - name: BROZ_MATCHING__USER_SERVICE_URL
+              value: "http://broz-user.broz-app.svc.cluster.local:3002"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 400m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broz-matching
+  namespace: broz-app
+spec:
+  selector:
+    app: broz-matching
+  ports:
+    - port: 3003
+      targetPort: 3003

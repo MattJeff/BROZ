@@ -1,0 +1,45 @@
+# Traefik Helm values for K3s on Hetzner
+# Apply: helm upgrade --install traefik traefik/traefik -n kube-system -f traefik-values.yaml
+
+globalArguments: []
+
+additionalArguments:
+  - "--certificatesresolvers.letsencrypt.acme.email=admin@brozr.com"
+  - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+  - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+  - "--providers.kubernetescrd.allowCrossNamespace=true"
+  - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+  - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+    protocol: TCP
+  websecure:
+    port: 8443
+    exposedPort: 443
+    protocol: TCP
+    tls:
+      enabled: true
+
+persistence:
+  enabled: true
+  size: 128Mi
+  path: /data
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# Logs
+logs:
+  general:
+    level: WARN
+  access:
+    enabled: true
+    format: json

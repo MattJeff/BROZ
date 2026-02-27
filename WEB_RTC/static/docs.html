@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LiveRelay Docs — WebRTC SFU as-a-Service</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #09090b;
+  --sidebar-bg: #111113;
+  --code-bg: #0c0c0e;
+  --accent: #3b82f6;
+  --accent-dim: rgba(59,130,246,.15);
+  --text-heading: #fafafa;
+  --text-body: #a1a1aa;
+  --text-code: #d4d4d8;
+  --border: #1e1e22;
+  --table-header: #18181b;
+  --table-alt: #0f0f12;
+  --syn-str: #a5d6ff;
+  --syn-kw: #ff7b72;
+  --syn-cmt: #8b949e;
+  --syn-num: #79c0ff;
+  --syn-fn: #d2a8ff;
+  --syn-tag: #7ee787;
+  --sidebar-w: 260px;
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text-body);
+  line-height: 1.7;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ─────────────────────────────────── */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow-y: auto;
+  transition: transform .3s ease;
+}
+.sidebar-logo {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo a {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-logo .logo-icon {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sidebar-logo .logo-icon svg { width: 16px; height: 16px; }
+.sidebar-logo span {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-heading);
+  letter-spacing: -.3px;
+}
+.sidebar-nav { padding: 16px 0; flex: 1; }
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  padding: 9px 24px;
+  color: var(--text-body);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  border-left: 2px solid transparent;
+  transition: all .15s ease;
+}
+.sidebar-nav a:hover {
+  color: var(--text-heading);
+  background: rgba(255,255,255,.03);
+}
+.sidebar-nav a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-dim);
+}
+.sidebar-nav a .nav-num {
+  display: inline-block;
+  width: 20px;
+  font-size: 12px;
+  color: #52525b;
+  margin-right: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.sidebar-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: #52525b;
+}
+.sidebar-footer a { color: var(--accent); text-decoration: none; }
+.sidebar-footer a:hover { text-decoration: underline; }
+
+/* ── Hamburger ───────────────────────────────── */
+.hamburger {
+  display: none;
+  position: fixed;
+  top: 16px; left: 16px;
+  z-index: 200;
+  width: 40px; height: 40px;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.hamburger span {
+  display: block;
+  width: 18px; height: 2px;
+  background: var(--text-heading);
+  border-radius: 2px;
+  transition: all .25s ease;
+}
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 90;
+}
+.overlay.show { display: block; }
+
+/* ── Main ────────────────────────────────────── */
+.main {
+  margin-left: var(--sidebar-w);
+  max-width: 820px;
+  padding: 48px 48px 120px;
+}
+
+h1 {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text-heading);
+  letter-spacing: -.5px;
+  margin-bottom: 8px;
+}
+.hero-sub {
+  font-size: 18px;
+  color: var(--text-body);
+  margin-bottom: 40px;
+}
+h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-heading);
+  letter-spacing: -.3px;
+  margin: 56px 0 20px;
+  padding-top: 8px;
+}
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 32px 0 12px;
+}
+h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 24px 0 8px;
+}
+
+p { margin: 0 0 14px; font-size: 15px; }
+a { color: var(--accent); }
+strong { color: var(--text-heading); font-weight: 600; }
+code {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-code);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 48px 0;
+}
+
+/* ── Code blocks ─────────────────────────────── */
+.code-block {
+  position: relative;
+  margin: 14px 0 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: #141416;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: #52525b;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.copy-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-body);
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: system-ui, sans-serif;
+  transition: all .15s;
+}
+.copy-btn:hover { background: rgba(255,255,255,.06); color: var(--text-heading); }
+.copy-btn.copied { color: var(--syn-tag); border-color: var(--syn-tag); }
+pre {
+  margin: 0;
+  padding: 16px 18px;
+  overflow-x: auto;
+  background: var(--code-bg);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-code);
+  tab-size: 2;
+}
+pre .kw { color: var(--syn-kw); }
+pre .str { color: var(--syn-str); }
+pre .cmt { color: var(--syn-cmt); }
+pre .num { color: var(--syn-num); }
+pre .fn { color: var(--syn-fn); }
+pre .tag { color: var(--syn-tag); }
+
+/* ── Tables ──────────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 14px;
+}
+th {
+  text-align: left;
+  background: var(--table-header);
+  padding: 10px 14px;
+  color: var(--text-heading);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+tr:nth-child(even) td { background: var(--table-alt); }
+td code {
+  font-size: 12px;
+  padding: 1px 5px;
+}
+
+/* ── Callout ─────────────────────────────────── */
+.callout {
+  padding: 14px 18px;
+  border-radius: 8px;
+  margin: 16px 0 20px;
+  font-size: 14px;
+  border-left: 3px solid;
+}
+.callout.info { background: rgba(59,130,246,.08); border-color: var(--accent); }
+.callout.success { background: rgba(126,231,135,.08); border-color: #7ee787; }
+.callout.warn { background: rgba(255,183,77,.08); border-color: #ffb74d; }
+
+/* ── Step badges ─────────────────────────────── */
+.step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+.step-title {
+  display: flex;
+  align-items: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin: 28px 0 10px;
+}
+
+/* ── Endpoint badges ─────────────────────────── */
+.endpoint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 32px 0 10px;
+  flex-wrap: wrap;
+}
+.method {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .5px;
+}
+.method.get { background: rgba(126,231,135,.15); color: #7ee787; }
+.method.post { background: rgba(59,130,246,.15); color: #60a5fa; }
+.method.delete { background: rgba(255,123,114,.15); color: #ff7b72; }
+.endpoint-path {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 15px;
+  color: var(--text-heading);
+}
+.endpoint-desc {
+  font-size: 13px;
+  color: var(--text-body);
+  margin-left: auto;
+}
+
+/* ── Auth diagram ────────────────────────────── */
+.diagram {
+  margin: 16px 0 20px;
+  padding: 20px 22px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-code);
+  white-space: pre;
+}
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 860px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .hamburger { display: flex; }
+  .main { margin-left: 0; padding: 72px 24px 100px; }
+}
+@media (max-width: 540px) {
+  .main { padding: 64px 16px 80px; }
+  h1 { font-size: 28px; }
+  h2 { font-size: 22px; }
+  table { font-size: 12px; }
+  th, td { padding: 7px 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Hamburger (mobile) -->
+<button class="hamburger" id="hamburger" aria-label="Toggle navigation">
+  <span></span><span></span><span></span>
+</button>
+<div class="overlay" id="overlay"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <a href="/">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <span>LiveRelay Docs</span>
+    </a>
+  </div>
+  <nav class="sidebar-nav" id="nav">
+    <a href="#quick-start"><span class="nav-num">1</span>Quick Start</a>
+    <a href="#authentication"><span class="nav-num">2</span>Authentication</a>
+    <a href="#rest-api"><span class="nav-num">3</span>REST API</a>
+    <a href="#sdk-reference"><span class="nav-num">4</span>SDK Reference</a>
+    <a href="#examples"><span class="nav-num">5</span>Examples</a>
+    <a href="#error-codes"><span class="nav-num">6</span>Error Codes</a>
+  </nav>
+  <div class="sidebar-footer">
+    LiveRelay v0.2.0<br>
+    <a href="/dashboard">Dashboard</a>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<main class="main">
+
+<h1>LiveRelay Documentation</h1>
+<p class="hero-sub">A Rust-powered WebRTC SFU as-a-service. Stream live video in 5 minutes.</p>
+
+<!-- ═══════════════════════════════════════════ -->
+<hr>
+<section id="quick-start">
+<h2>Quick Start</h2>
+<p>Go from zero to live streaming in five steps. All you need is a running LiveRelay server and a browser.</p>
+
+<div class="step-title"><span class="step">1</span>Get your API key</div>
+<p>When you start the LiveRelay server, a bootstrap API key is logged to stdout:</p>
+<div class="code-block">
+  <div class="code-header"><span>terminal</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="cmt">INFO</span> LiveRelay SFU listening on <span class="str">http://0.0.0.0:8080</span>
+<span class="cmt">INFO</span> Bootstrap API key: <span class="str">lr_aebfc064dd0c8fa2...</span></pre>
+</div>
+<p>Or create one via the <a href="/dashboard">Dashboard</a>.</p>
+
+<div class="step-title"><span class="step">2</span>Create a room</div>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X POST https://your-server.com/v1/rooms \
+  -H <span class="str">"Authorization: Bearer lr_your_api_key"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"room_type": "broadcast"}'</span></pre>
+</div>
+<p>Response:</p>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"id"</span>: <span class="str">"8271274b-fc62-4b73-98c5-40e28b7a1b81"</span>,
+  <span class="str">"type"</span>: <span class="str">"broadcast"</span>,
+  <span class="str">"tokens"</span>: {
+    <span class="str">"publish"</span>: <span class="str">"eyJ..."</span>,
+    <span class="str">"subscribe"</span>: <span class="str">"eyJ..."</span>
+  }
+}</pre>
+</div>
+
+<div class="step-title"><span class="step">3</span>Add the SDK</div>
+<p>Include via a script tag:</p>
+<div class="code-block">
+  <div class="code-header"><span>html</span><button class="copy-btn">Copy</button></div>
+  <pre>&lt;<span class="kw">script</span> <span class="tag">src</span>=<span class="str">"https://your-server.com/static/liverelay.js"</span>&gt;&lt;/<span class="kw">script</span>&gt;</pre>
+</div>
+<p>Or via npm:</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>npm install @liverelay/sdk</pre>
+</div>
+
+<div class="step-title"><span class="step">4</span>Publish a stream</div>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> lr = <span class="kw">new</span> <span class="fn">LiveRelay</span>(<span class="str">'https://your-server.com'</span>);
+
+<span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">publish</span>({
+  token: <span class="str">'eyJ...publish_token'</span>,
+  video: <span class="num">true</span>,
+  audio: <span class="num">true</span>
+});
+
+console.<span class="fn">log</span>(session.state); <span class="cmt">// 'connected'</span></pre>
+</div>
+
+<div class="step-title"><span class="step">5</span>Subscribe to a stream</div>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">subscribe</span>({
+  token: <span class="str">'eyJ...subscribe_token'</span>,
+  element: document.<span class="fn">getElementById</span>(<span class="str">'video'</span>)
+});</pre>
+</div>
+
+<div class="callout success"><strong>That's it!</strong> You're streaming live video.</div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<hr>
+<section id="authentication">
+<h2>Authentication</h2>
+<p>LiveRelay uses a <strong>two-level authentication</strong> system that separates backend management from user-facing connections.</p>
+
+<table>
+  <thead>
+    <tr><th>Level</th><th>Who</th><th>How</th><th>Used for</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>API Key</strong></td>
+      <td>Your backend</td>
+      <td><code>Authorization: Bearer lr_...</code></td>
+      <td>REST API (create rooms, tokens)</td>
+    </tr>
+    <tr>
+      <td><strong>JWT Token</strong></td>
+      <td>Your users</td>
+      <td><code>Authorization: Bearer eyJ...</code></td>
+      <td>SFU endpoints (publish, subscribe, call)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Authentication Flow</h3>
+<div class="diagram">Your Backend                    LiveRelay                    Your Users
+&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;                    &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;                    &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
+Has API key (lr_...)
+                    &#9472;&#9472;POST /v1/rooms&#9472;&#9472;&#9658;
+                    &#9668;&#9472;&#9472;{tokens}&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
+
+Gives token to user &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658; Has JWT token
+
+                                    &#9668;&#9472;&#9472;POST /sfu/publish&#9472;&#9472;  Uses SDK
+                                    &#9472;&#9472;SDP answer&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9658;</div>
+
+<h3>API Key format</h3>
+<p><code>lr_</code> + 32 hex characters, e.g. <code>lr_aebfc064dd0c8fa2cb0cbc01998e3f9b</code></p>
+
+<h3>JWT Token claims</h3>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"sub"</span>: <span class="str">"peer-uuid"</span>,
+  <span class="str">"room_id"</span>: <span class="str">"room-uuid"</span>,
+  <span class="str">"role"</span>: <span class="str">"publish|subscribe|call"</span>,
+  <span class="str">"key_id"</span>: <span class="str">"lr_aebfc"</span>,
+  <span class="str">"exp"</span>: <span class="num">1770498859</span>,
+  <span class="str">"iat"</span>: <span class="num">1770412459</span>
+}</pre>
+</div>
+<p>Tokens expire after <strong>24 hours</strong> by default.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<hr>
+<section id="rest-api">
+<h2>REST API Reference</h2>
+<p>All REST endpoints require an API key unless noted otherwise. Send it via the <code>Authorization: Bearer lr_...</code> header.</p>
+
+<!-- POST /v1/rooms -->
+<div class="endpoint">
+  <span class="method post">POST</span>
+  <span class="endpoint-path">/v1/rooms</span>
+  <span class="endpoint-desc">Create a room</span>
+</div>
+<p>Creates a new broadcast or call room and returns join tokens.</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X POST https://your-server.com/v1/rooms \
+  -H <span class="str">"Authorization: Bearer lr_your_api_key"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"room_type": "broadcast"}'</span></pre>
+</div>
+<h4>Request body</h4>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>room_type</code></td><td>string</td><td><code>"broadcast"</code> (1 publisher, N subscribers) or <code>"call"</code> (2 peers, bidirectional)</td></tr>
+  </tbody>
+</table>
+<h4>Response &mdash; broadcast</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"id"</span>: <span class="str">"uuid"</span>,
+  <span class="str">"type"</span>: <span class="str">"broadcast"</span>,
+  <span class="str">"tokens"</span>: {
+    <span class="str">"publish"</span>: <span class="str">"jwt..."</span>,
+    <span class="str">"subscribe"</span>: <span class="str">"jwt..."</span>
+  }
+}</pre>
+</div>
+<h4>Response &mdash; call</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"id"</span>: <span class="str">"uuid"</span>,
+  <span class="str">"type"</span>: <span class="str">"call"</span>,
+  <span class="str">"tokens"</span>: {
+    <span class="str">"caller"</span>: <span class="str">"jwt..."</span>,
+    <span class="str">"callee"</span>: <span class="str">"jwt..."</span>
+  }
+}</pre>
+</div>
+<h4>Errors</h4>
+<table>
+  <thead><tr><th>Status</th><th>Code</th><th>Cause</th></tr></thead>
+  <tbody>
+    <tr><td>401</td><td><code>auth_header_missing</code></td><td>Missing Authorization header</td></tr>
+    <tr><td>401</td><td><code>api_key_invalid</code></td><td>Invalid API key</td></tr>
+  </tbody>
+</table>
+
+<!-- GET /v1/rooms -->
+<div class="endpoint">
+  <span class="method get">GET</span>
+  <span class="endpoint-path">/v1/rooms</span>
+  <span class="endpoint-desc">List rooms</span>
+</div>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl https://your-server.com/v1/rooms \
+  -H <span class="str">"Authorization: Bearer lr_your_api_key"</span></pre>
+</div>
+<h4>Response</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>[
+  {
+    <span class="str">"room_id"</span>: <span class="str">"uuid"</span>,
+    <span class="str">"room_type"</span>: <span class="str">"broadcast"</span>,
+    <span class="str">"publisher_count"</span>: <span class="num">1</span>,
+    <span class="str">"subscriber_count"</span>: <span class="num">42</span>,
+    <span class="str">"created_at_secs"</span>: <span class="num">120</span>
+  }
+]</pre>
+</div>
+
+<!-- GET /v1/rooms/:room_id -->
+<div class="endpoint">
+  <span class="method get">GET</span>
+  <span class="endpoint-path">/v1/rooms/:room_id</span>
+  <span class="endpoint-desc">Get room info</span>
+</div>
+<p>Returns the same object as a single list item.</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl https://your-server.com/v1/rooms/8271274b-fc62-4b73-98c5-40e28b7a1b81 \
+  -H <span class="str">"Authorization: Bearer lr_your_api_key"</span></pre>
+</div>
+<h4>Errors</h4>
+<table>
+  <thead><tr><th>Status</th><th>Code</th></tr></thead>
+  <tbody>
+    <tr><td>404</td><td><code>room_not_found</code></td></tr>
+  </tbody>
+</table>
+
+<!-- DELETE /v1/rooms/:room_id -->
+<div class="endpoint">
+  <span class="method delete">DELETE</span>
+  <span class="endpoint-path">/v1/rooms/:room_id</span>
+  <span class="endpoint-desc">Delete a room</span>
+</div>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X DELETE https://your-server.com/v1/rooms/8271274b-fc62-4b73-98c5-40e28b7a1b81 \
+  -H <span class="str">"Authorization: Bearer lr_your_api_key"</span></pre>
+</div>
+<p>Returns <code>204 No Content</code> on success.</p>
+<h4>Errors</h4>
+<table>
+  <thead><tr><th>Status</th><th>Code</th></tr></thead>
+  <tbody>
+    <tr><td>404</td><td><code>room_not_found</code></td></tr>
+  </tbody>
+</table>
+
+<!-- POST /v1/rooms/:room_id/token -->
+<div class="endpoint">
+  <span class="method post">POST</span>
+  <span class="endpoint-path">/v1/rooms/:room_id/token</span>
+  <span class="endpoint-desc">Generate a token</span>
+</div>
+<p>Generate an additional JWT token for an existing room.</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X POST https://your-server.com/v1/rooms/uuid/token \
+  -H <span class="str">"Authorization: Bearer lr_your_api_key"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"role": "subscribe"}'</span></pre>
+</div>
+<h4>Request body</h4>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>role</code></td><td>string</td><td><code>"publish"</code>, <code>"subscribe"</code>, or <code>"call"</code></td></tr>
+  </tbody>
+</table>
+<h4>Response</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"token"</span>: <span class="str">"jwt..."</span>
+}</pre>
+</div>
+<h4>Errors</h4>
+<table>
+  <thead><tr><th>Status</th><th>Code</th></tr></thead>
+  <tbody>
+    <tr><td>404</td><td><code>room_not_found</code></td></tr>
+    <tr><td>400</td><td><code>invalid_role</code></td></tr>
+  </tbody>
+</table>
+
+<!-- POST /v1/keys -->
+<div class="endpoint">
+  <span class="method post">POST</span>
+  <span class="endpoint-path">/v1/keys</span>
+  <span class="endpoint-desc">Create API key</span>
+</div>
+<p>Requires an existing API key. Creates a new API key for programmatic access.</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X POST https://your-server.com/v1/keys \
+  -H <span class="str">"Authorization: Bearer lr_your_api_key"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"name": "my-app"}'</span></pre>
+</div>
+<h4>Response</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"key"</span>: <span class="str">"lr_..."</span>,
+  <span class="str">"name"</span>: <span class="str">"my-app"</span>
+}</pre>
+</div>
+
+<!-- GET /health -->
+<div class="endpoint">
+  <span class="method get">GET</span>
+  <span class="endpoint-path">/health</span>
+  <span class="endpoint-desc">Health check (no auth)</span>
+</div>
+<div class="callout info">This endpoint does <strong>not</strong> require authentication.</div>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl https://your-server.com/health</pre>
+</div>
+<h4>Response</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"status"</span>: <span class="str">"ok"</span>,
+  <span class="str">"version"</span>: <span class="str">"0.2.0"</span>,
+  <span class="str">"rooms_active"</span>: <span class="num">5</span>,
+  <span class="str">"subscribers_active"</span>: <span class="num">12</span>
+}</pre>
+</div>
+
+<h3>SFU Endpoints</h3>
+<p>These endpoints use <strong>JWT token</strong> authentication (not API keys). The token's <code>role</code> claim determines access.</p>
+
+<!-- POST /sfu/publish -->
+<div class="endpoint">
+  <span class="method post">POST</span>
+  <span class="endpoint-path">/sfu/publish</span>
+  <span class="endpoint-desc">Start publishing</span>
+</div>
+<p>Requires a JWT with role <code>"publish"</code> or <code>"call"</code>.</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X POST https://your-server.com/sfu/publish \
+  -H <span class="str">"Authorization: Bearer eyJ...jwt_token"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"sdp": "v=0...", "type": "offer"}'</span></pre>
+</div>
+<h4>Request body</h4>
+<table>
+  <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>sdp</code></td><td>string</td><td>WebRTC SDP offer</td></tr>
+    <tr><td><code>type</code></td><td>string</td><td>Always <code>"offer"</code></td></tr>
+  </tbody>
+</table>
+<h4>Response</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"sdp"</span>: <span class="str">"v=0..."</span>,
+  <span class="str">"type"</span>: <span class="str">"answer"</span>
+}</pre>
+</div>
+
+<!-- POST /sfu/subscribe -->
+<div class="endpoint">
+  <span class="method post">POST</span>
+  <span class="endpoint-path">/sfu/subscribe</span>
+  <span class="endpoint-desc">Start subscribing</span>
+</div>
+<p>Requires a JWT with role <code>"subscribe"</code> or <code>"call"</code>.</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X POST https://your-server.com/sfu/subscribe \
+  -H <span class="str">"Authorization: Bearer eyJ...jwt_token"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"sdp": "v=0...", "type": "offer"}'</span></pre>
+</div>
+<h4>Response</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"sdp"</span>: <span class="str">"v=0..."</span>,
+  <span class="str">"type"</span>: <span class="str">"answer"</span>
+}</pre>
+</div>
+
+<!-- POST /sfu/call -->
+<div class="endpoint">
+  <span class="method post">POST</span>
+  <span class="endpoint-path">/sfu/call</span>
+  <span class="endpoint-desc">Join a 1:1 call</span>
+</div>
+<p>Requires a JWT with role <code>"call"</code>.</p>
+<div class="code-block">
+  <div class="code-header"><span>bash</span><button class="copy-btn">Copy</button></div>
+  <pre>curl -X POST https://your-server.com/sfu/call \
+  -H <span class="str">"Authorization: Bearer eyJ...jwt_token"</span> \
+  -H <span class="str">"Content-Type: application/json"</span> \
+  -d <span class="str">'{"sdp": "v=0...", "type": "offer"}'</span></pre>
+</div>
+<h4>Response</h4>
+<div class="code-block">
+  <div class="code-header"><span>json</span><button class="copy-btn">Copy</button></div>
+  <pre>{
+  <span class="str">"sdp"</span>: <span class="str">"v=0..."</span>,
+  <span class="str">"type"</span>: <span class="str">"answer"</span>
+}</pre>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<hr>
+<section id="sdk-reference">
+<h2>SDK Reference</h2>
+
+<h3>Installation</h3>
+<div class="code-block">
+  <div class="code-header"><span>html</span><button class="copy-btn">Copy</button></div>
+  <pre>&lt;<span class="kw">script</span> <span class="tag">src</span>=<span class="str">"https://your-server.com/static/liverelay.js"</span>&gt;&lt;/<span class="kw">script</span>&gt;
+<span class="cmt">&lt;!-- Available as window.LiveRelay --&gt;</span></pre>
+</div>
+
+<h3>Constructor</h3>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">new</span> <span class="fn">LiveRelay</span>(serverUrl)
+<span class="kw">new</span> <span class="fn">LiveRelay</span>({ server: serverUrl })
+
+LiveRelay.VERSION  <span class="cmt">// "0.2.0"</span></pre>
+</div>
+
+<h3>lr.publish(options) &rarr; Promise&lt;PublishSession&gt;</h3>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">publish</span>({
+  token: string,           <span class="cmt">// Required: JWT publish token</span>
+  stream: MediaStream,     <span class="cmt">// Option A: provide your own stream</span>
+  video: boolean,          <span class="cmt">// Option B: auto-capture (default: false)</span>
+  audio: boolean,          <span class="cmt">// Option B: auto-capture (default: false)</span>
+  onStateChange: function  <span class="cmt">// Optional: callback(state)</span>
+});</pre>
+</div>
+
+<h3>lr.subscribe(options) &rarr; Promise&lt;SubscribeSession&gt;</h3>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">subscribe</span>({
+  token: string,              <span class="cmt">// Required: JWT subscribe token</span>
+  element: HTMLVideoElement,  <span class="cmt">// Required: video element to render to</span>
+  onStateChange: function     <span class="cmt">// Optional: callback(state)</span>
+});</pre>
+</div>
+
+<h3>lr.call(options) &rarr; Promise&lt;CallSession&gt;</h3>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">call</span>({
+  token: string,              <span class="cmt">// Required: JWT call token</span>
+  stream: MediaStream,        <span class="cmt">// Option A: provide your own stream</span>
+  video: boolean,             <span class="cmt">// Option B: auto-capture</span>
+  audio: boolean,             <span class="cmt">// Option B: auto-capture</span>
+  element: HTMLVideoElement,  <span class="cmt">// Required: for remote video</span>
+  localElement: HTMLVideoElement, <span class="cmt">// Optional: local preview</span>
+  onStateChange: function     <span class="cmt">// Optional: callback(state)</span>
+});</pre>
+</div>
+
+<h3>Session properties &amp; methods</h3>
+<p>Common to all session types:</p>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre>session.state          <span class="cmt">// 'connecting' | 'connected' | 'disconnected' | 'failed'</span>
+session.<span class="fn">close</span>()        <span class="cmt">// Close the session</span></pre>
+</div>
+
+<h3>Mute controls (PublishSession &amp; CallSession)</h3>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre>session.<span class="fn">muteAudio</span>()
+session.<span class="fn">unmuteAudio</span>()
+session.<span class="fn">muteVideo</span>()
+session.<span class="fn">unmuteVideo</span>()
+session.isAudioMuted    <span class="cmt">// boolean</span>
+session.isVideoMuted    <span class="cmt">// boolean</span></pre>
+</div>
+
+<h3>LiveRelayError</h3>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">try</span> {
+  <span class="kw">await</span> lr.<span class="fn">publish</span>({ token, video: <span class="num">true</span> });
+} <span class="kw">catch</span> (e) {
+  <span class="kw">if</span> (e <span class="kw">instanceof</span> LiveRelayError) {
+    console.<span class="fn">log</span>(e.code);       <span class="cmt">// 'AUTH_ERROR', 'NETWORK_ERROR', etc.</span>
+    console.<span class="fn">log</span>(e.message);    <span class="cmt">// Human-readable message</span>
+    console.<span class="fn">log</span>(e.httpStatus); <span class="cmt">// HTTP status code (if from server)</span>
+  }
+}</pre>
+</div>
+
+<h4>SDK Error codes</h4>
+<table>
+  <thead><tr><th>Code</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>AUTH_ERROR</code></td><td>Token is invalid, expired, or has wrong role</td></tr>
+    <tr><td><code>NETWORK_ERROR</code></td><td>Failed to connect to the server</td></tr>
+    <tr><td><code>MEDIA_ERROR</code></td><td>Camera/microphone access denied or unavailable</td></tr>
+    <tr><td><code>TIMEOUT</code></td><td>Connection attempt timed out</td></tr>
+    <tr><td><code>SERVER_ERROR</code></td><td>Server returned an unexpected error</td></tr>
+    <tr><td><code>ROOM_NOT_FOUND</code></td><td>Room does not exist or was deleted</td></tr>
+    <tr><td><code>ROOM_FULL</code></td><td>Broadcast room already has a publisher</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<hr>
+<section id="examples">
+<h2>Examples</h2>
+
+<h3>Live Streaming (Twitch-like)</h3>
+<p>A broadcast room with one publisher streaming to many subscribers.</p>
+
+<h4>Publisher (streamer page)</h4>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> lr = <span class="kw">new</span> <span class="fn">LiveRelay</span>(<span class="str">'https://api.liverelay.dev'</span>);
+
+<span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">publish</span>({
+  token: publishToken,
+  video: <span class="num">true</span>,
+  audio: <span class="num">true</span>
+});
+
+<span class="cmt">// Toggle mute</span>
+document.<span class="fn">getElementById</span>(<span class="str">'mute-btn'</span>).onclick = () =&gt; {
+  session.isAudioMuted ? session.<span class="fn">unmuteAudio</span>() : session.<span class="fn">muteAudio</span>();
+};
+
+<span class="cmt">// Stop stream</span>
+document.<span class="fn">getElementById</span>(<span class="str">'stop-btn'</span>).onclick = () =&gt; session.<span class="fn">close</span>();</pre>
+</div>
+
+<h4>Subscriber (viewer page)</h4>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> lr = <span class="kw">new</span> <span class="fn">LiveRelay</span>(<span class="str">'https://api.liverelay.dev'</span>);
+
+<span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">subscribe</span>({
+  token: subscribeToken,
+  element: document.<span class="fn">getElementById</span>(<span class="str">'player'</span>)
+});</pre>
+</div>
+
+<h3>Video Call (1:1)</h3>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> lr = <span class="kw">new</span> <span class="fn">LiveRelay</span>(<span class="str">'https://api.liverelay.dev'</span>);
+
+<span class="kw">const</span> session = <span class="kw">await</span> lr.<span class="fn">call</span>({
+  token: callToken,
+  video: <span class="num">true</span>,
+  audio: <span class="num">true</span>,
+  element: document.<span class="fn">getElementById</span>(<span class="str">'remote-video'</span>),
+  localElement: document.<span class="fn">getElementById</span>(<span class="str">'local-video'</span>)
+});</pre>
+</div>
+
+<h3>Node.js Backend Integration</h3>
+<p>Example Express.js routes for creating rooms and distributing tokens to your users.</p>
+<div class="code-block">
+  <div class="code-header"><span>javascript</span><button class="copy-btn">Copy</button></div>
+  <pre><span class="kw">const</span> LIVERELAY = <span class="str">'https://api.liverelay.dev'</span>;
+<span class="kw">const</span> API_KEY = process.env.LIVERELAY_API_KEY;
+
+<span class="cmt">// Create a broadcast room</span>
+app.<span class="fn">post</span>(<span class="str">'/api/go-live'</span>, <span class="kw">async</span> (req, res) =&gt; {
+  <span class="kw">const</span> room = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${LIVERELAY}/v1/rooms`</span>, {
+    method: <span class="str">'POST'</span>,
+    headers: {
+      <span class="str">'Authorization'</span>: <span class="str">`Bearer ${API_KEY}`</span>,
+      <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span>
+    },
+    body: JSON.<span class="fn">stringify</span>({ room_type: <span class="str">'broadcast'</span> })
+  }).<span class="fn">then</span>(r =&gt; r.<span class="fn">json</span>());
+
+  <span class="cmt">// Store room in your database</span>
+  <span class="kw">await</span> db.streams.<span class="fn">create</span>({
+    userId: req.user.id,
+    roomId: room.id,
+    tokens: room.tokens
+  });
+
+  res.<span class="fn">json</span>({ publishToken: room.tokens.publish });
+});
+
+<span class="cmt">// Get subscribe token for viewers</span>
+app.<span class="fn">get</span>(<span class="str">'/api/watch/:streamId'</span>, <span class="kw">async</span> (req, res) =&gt; {
+  <span class="kw">const</span> stream = <span class="kw">await</span> db.streams.<span class="fn">findById</span>(req.params.streamId);
+  res.<span class="fn">json</span>({ subscribeToken: stream.tokens.subscribe });
+});</pre>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<hr>
+<section id="error-codes">
+<h2>Error Codes</h2>
+<p>Complete reference of all error codes returned by the LiveRelay REST API and SFU endpoints.</p>
+
+<table>
+  <thead>
+    <tr><th>Code</th><th>Status</th><th>Message</th><th>Cause</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>auth_header_missing</code></td>
+      <td>401</td>
+      <td>Authorization header is missing</td>
+      <td>No Bearer token in request</td>
+    </tr>
+    <tr>
+      <td><code>api_key_invalid</code></td>
+      <td>401</td>
+      <td>API key is not valid</td>
+      <td>Wrong or revoked API key</td>
+    </tr>
+    <tr>
+      <td><code>token_invalid</code></td>
+      <td>401</td>
+      <td>Token signature is invalid</td>
+      <td>Corrupted or wrong JWT</td>
+    </tr>
+    <tr>
+      <td><code>token_expired</code></td>
+      <td>401</td>
+      <td>Token has expired</td>
+      <td>JWT past expiration time</td>
+    </tr>
+    <tr>
+      <td><code>role_insufficient</code></td>
+      <td>403</td>
+      <td>Token role cannot perform this action</td>
+      <td>e.g., subscribe token used on /sfu/publish</td>
+    </tr>
+    <tr>
+      <td><code>room_not_found</code></td>
+      <td>404</td>
+      <td>Room does not exist</td>
+      <td>Wrong room_id or room was deleted</td>
+    </tr>
+    <tr>
+      <td><code>room_full</code></td>
+      <td>409</td>
+      <td>Room has reached publisher limit</td>
+      <td>Broadcast room already has a publisher</td>
+    </tr>
+    <tr>
+      <td><code>no_publisher_available</code></td>
+      <td>404</td>
+      <td>Room has no active publisher</td>
+      <td>Trying to subscribe before anyone publishes</td>
+    </tr>
+    <tr>
+      <td><code>invalid_role</code></td>
+      <td>400</td>
+      <td>Invalid role value</td>
+      <td>Role must be publish, subscribe, or call</td>
+    </tr>
+    <tr>
+      <td><code>room_type_mismatch</code></td>
+      <td>400</td>
+      <td>Wrong room type for this endpoint</td>
+      <td>e.g., using /sfu/call on a broadcast room</td>
+    </tr>
+    <tr>
+      <td><code>invalid_sdp</code></td>
+      <td>400</td>
+      <td>Malformed SDP offer</td>
+      <td>Invalid WebRTC session description</td>
+    </tr>
+    <tr>
+      <td><code>peer_connection_failed</code></td>
+      <td>500</td>
+      <td>WebRTC connection setup failed</td>
+      <td>Server-side WebRTC error</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  All error responses follow the format: <code>{"error": "code", "message": "Human-readable message"}</code>
+</div>
+</section>
+
+</main>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ── Copy buttons ──────────────────────────── */
+  document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var pre = btn.closest('.code-block').querySelector('pre');
+      var text = pre.textContent;
+      navigator.clipboard.writeText(text).then(function() {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(function() {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1800);
+      });
+    });
+  });
+
+  /* ── Scroll spy ────────────────────────────── */
+  var sections = document.querySelectorAll('section[id]');
+  var navLinks = document.querySelectorAll('#nav a');
+
+  function updateActiveLink() {
+    var scrollPos = window.scrollY + 80;
+    var current = '';
+
+    sections.forEach(function(section) {
+      if (section.offsetTop <= scrollPos) {
+        current = section.getAttribute('id');
+      }
+    });
+
+    navLinks.forEach(function(link) {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === '#' + current) {
+        link.classList.add('active');
+      }
+    });
+  }
+
+  var scrollTick = false;
+  window.addEventListener('scroll', function() {
+    if (!scrollTick) {
+      requestAnimationFrame(function() {
+        updateActiveLink();
+        scrollTick = false;
+      });
+      scrollTick = true;
+    }
+  });
+  updateActiveLink();
+
+  /* ── Mobile hamburger ──────────────────────── */
+  var hamburger = document.getElementById('hamburger');
+  var sidebar   = document.getElementById('sidebar');
+  var overlay   = document.getElementById('overlay');
+
+  function toggleMenu() {
+    var isOpen = sidebar.classList.toggle('open');
+    hamburger.classList.toggle('open', isOpen);
+    overlay.classList.toggle('show', isOpen);
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+  }
+  function closeMenu() {
+    sidebar.classList.remove('open');
+    hamburger.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  hamburger.addEventListener('click', toggleMenu);
+  overlay.addEventListener('click', closeMenu);
+
+  navLinks.forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (window.innerWidth <= 860) {
+        closeMenu();
+      }
+    });
+  });
+
+  window.addEventListener('resize', function() {
+    if (window.innerWidth > 860) closeMenu();
+  });
+})();
+</script>
+</body>
+</html>
