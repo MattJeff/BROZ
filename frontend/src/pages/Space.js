@@ -924,7 +924,7 @@ export const Space = () => {
       .then(json => {
         if (json) {
           const bros = json.data || json;
-          const ids = new Set((Array.isArray(bros) ? bros : []).map(b => b.id));
+          const ids = new Set((Array.isArray(bros) ? bros : []).flatMap(b => [b.id, b.credential_id].filter(Boolean)));
           setCallFollowStatus(ids.has(partnerId) ? 'accepted' : null);
         }
       })

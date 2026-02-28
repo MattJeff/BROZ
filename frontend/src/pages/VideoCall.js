@@ -578,7 +578,9 @@ const VideoCall = () => {
     }).then(r => r.ok ? r.json() : null).then(json => {
       if (json) {
         const bros = json.data || json;
-        followingIdsRef.current = new Set((Array.isArray(bros) ? bros : []).map(b => b.id));
+        followingIdsRef.current = new Set(
+          (Array.isArray(bros) ? bros : []).flatMap(b => [b.id, b.credential_id, b.user_id].filter(Boolean))
+        );
       }
     }).catch(() => {});
 
@@ -606,11 +608,132 @@ const VideoCall = () => {
         autoConnect: false  // Don't auto-connect — we call socket.connect() after listeners
       });
       socketRef.current = socket;
-      
+
+      // Common event handlers shared between direct call and regular match modes
+      const registerCommonSocketHandlers = (sock) => {
+        sock.on('like-received', (data) => {
+          if (data && data.total_likes !== undefined) {
+            setLikesReceived(data.total_likes);
+          } else {
+            setLikesReceived(prev => prev + 1);
+          }
+          setShowHearts(true);
+          setTimeout(() => setShowHearts(false), 3000);
+        });
+
+        sock.on('like-sent', (data) => {
+          setLiked(true);
+          setShowHearts(true);
+          setTimeout(() => setShowHearts(false), 3000);
+        });
+
+        sock.on('chat-message', (data) => {
+          const msgId = Date.now();
+          setChatMessages(prev => [...prev, {
+            id: msgId,
+            message: data.content,
+            fromPartner: true,
+            timestamp: data.timestamp
+          }]);
+          setTimeout(() => {
+            setChatMessages(prev => prev.filter(m => m.id !== msgId));
+          }, 30000);
+        });
+
+        sock.on('connection-rejected', (data) => {
+          if (isActive) {
+            setError(data.message || 'Ce compte est déjà connecté ailleurs');
+          }
+        });
+
+        sock.on('force-disconnect', (data) => {
+          if (isActive) {
+            setError(data.message || 'Connecté depuis un autre appareil');
+            navigate('/live-prematch');
+          }
+        });
+
+        sock.on('follow-request', (data) => {
+          if (isActive) {
+            setFollowRequester({
+              id: data.from_user_id,
+              name: data.from_user_name,
+              photo: data.from_user_photo
+            });
+            setShowIncomingFollowRequest(true);
+          }
+        });
+
+        sock.on('follow-response', (data) => {
+          if (isActive) {
+            if (data.accepted) {
+              setFollowStatus('accepted');
+              setIsMutualFollow(true);
+              const pid = data.target_id || data.partner_id;
+              if (pid) followingIdsRef.current.add(pid);
+            } else {
+              setFollowStatus('refused');
+            }
+          }
+        });
+
+        sock.on('bro-removed', (data) => {
+          if (isActive) {
+            setFollowStatus(null);
+            setFollowSent(false);
+            setIsMutualFollow(false);
+          }
+        });
+      };
+
       if (directCall && partnerId) {
         setConnectionState('searching');
         setPartner({ display_name: partnerName, id: partnerId });
-        
+
+        // Fetch full partner profile for direct call (age, kinks, country, etc.)
+        fetch(`${API_URL}/api/users/profile/${partnerId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.ok ? r.json() : null).then(json => {
+          if (json && isActive) {
+            const p = json.data || json;
+            // Calculate age from birth_date
+            let age = null;
+            if (p.birth_date) {
+              const bd = new Date(p.birth_date);
+              const now = new Date();
+              age = now.getFullYear() - bd.getFullYear();
+              if (now.getMonth() < bd.getMonth() || (now.getMonth() === bd.getMonth() && now.getDate() < bd.getDate())) age--;
+            }
+            setPartner(prev => ({
+              ...prev,
+              age,
+              kinks: Array.isArray(p.kinks) ? p.kinks : [],
+              country: p.country,
+              bio: p.bio,
+              user_id: p.credential_id || p.id,
+              profile_photo_url: p.profile_photo || p.profile_photo_url,
+              display_name: p.display_name || prev.display_name,
+            }));
+          }
+        }).catch(() => {});
+
+        // Check follow status for direct call partner
+        const dcPartnerId = partnerId;
+        if (dcPartnerId && followingIdsRef.current.has(dcPartnerId)) {
+          setFollowStatus('accepted');
+          setFollowSent(true);
+        }
+
+        // Check like status for direct call partner
+        fetch(`${API_URL}/api/users/likes/check/${partnerId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.ok ? r.json() : null).then(json => {
+          if (json && isActive) {
+            const d = json.data || json;
+            setLiked(!!d.already_liked);
+          }
+        }).catch(() => setLiked(false));
+
         // FIRST: Attach ALL listeners before connecting
         socket.on('connect', () => {});
         
@@ -717,6 +840,9 @@ const VideoCall = () => {
 
         socket.on('disconnect', () => {});
 
+        // Register common handlers (likes, chat, follow, etc.) for direct call mode
+        registerCommonSocketHandlers(socket);
+
         // NOW connect after all listeners are attached
         socket.connect();
         
@@ -817,7 +943,10 @@ const VideoCall = () => {
         } else {
           setLiked(false);
         }
-        if (partnerId && followingIdsRef.current.has(partnerId)) {
+        const partnerUserId = data.partner?.user_id;
+        const partnerProfileId = data.partner?.id;
+        if ((partnerUserId && followingIdsRef.current.has(partnerUserId)) ||
+            (partnerProfileId && followingIdsRef.current.has(partnerProfileId))) {
           setFollowStatus('accepted');
           setFollowSent(true);
         } else {
@@ -1148,91 +1277,9 @@ const VideoCall = () => {
         }
       });
 
-      socket.on('like-received', (data) => {
-        // Use total from server if provided, otherwise increment
-        if (data && data.total_likes !== undefined) {
-          setLikesReceived(data.total_likes);
-        } else {
-          setLikesReceived(prev => prev + 1);
-        }
-        setShowHearts(true);
-        setTimeout(() => setShowHearts(false), 3000);
-      });
-      
-      socket.on('like-sent', (data) => {
-        // Backend confirms our like was sent successfully (payload: { target_id })
-        setLiked(true);
-        setShowHearts(true);
-        setTimeout(() => setShowHearts(false), 3000);
-      });
+      // Register common handlers (likes, chat, follow, etc.) for regular match mode
+      registerCommonSocketHandlers(socket);
 
-      socket.on('chat-message', (data) => {
-        const msgId = Date.now();
-        setChatMessages(prev => [...prev, {
-          id: msgId,
-          message: data.content,
-          fromPartner: true,
-          timestamp: data.timestamp
-        }]);
-        // Auto-remove message after 30 seconds
-        setTimeout(() => {
-          setChatMessages(prev => prev.filter(m => m.id !== msgId));
-        }, 30000);
-      });
-
-      // Handle connection rejected (account already connected elsewhere)
-      socket.on('connection-rejected', (data) => {
-        if (isActive) {
-          setError(data.message || 'Ce compte est déjà connecté ailleurs');
-        }
-      });
-
-      // Handle force disconnect (new session opened elsewhere)
-      socket.on('force-disconnect', (data) => {
-        if (isActive) {
-          setError(data.message || 'Connecté depuis un autre appareil');
-          navigate('/live-prematch');
-        }
-      });
-
-      // Handle incoming follow request from partner
-      socket.on('follow-request', (data) => {
-        if (isActive) {
-          setFollowRequester({
-            id: data.from_user_id,
-            name: data.from_user_name,
-            photo: data.from_user_photo
-          });
-          setShowIncomingFollowRequest(true);
-        }
-      });
-
-      // Handle follow response from partner - both users get mutual follow
-      socket.on('follow-response', (data) => {
-        if (isActive) {
-          if (data.accepted) {
-            setFollowStatus('accepted');
-            setIsMutualFollow(true);
-            // Update pre-loaded following set
-            const pid = data.target_id || data.partner_id;
-            if (pid) followingIdsRef.current.add(pid);
-          } else {
-            setFollowStatus('refused');
-          }
-        }
-      });
-
-      // Handle when partner unfollows us
-      socket.on('bro-removed', (data) => {
-        if (isActive) {
-          // Always update follow status when we receive bro-removed
-          // The backend only sends this to the correct user
-          setFollowStatus(null);
-          setFollowSent(false);
-          setIsMutualFollow(false);
-        }
-      });
-      
       socket.connect();
     };
 

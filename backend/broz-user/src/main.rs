@@ -63,6 +63,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/me", get(routes::profile::get_profile).patch(routes::profile::update_profile))
         .route("/onboarding", post(routes::profile::complete_onboarding))
         .route("/check-pseudo", get(routes::profile::check_display_name))
+        .route("/profile/:id", get(routes::profile::get_public_profile))
         .route("/search", get(routes::search::search_users))
         .route("/follows/:id", post(routes::follows::send_follow_request).delete(routes::follows::remove_follow))
         .route("/follows/:id/respond", put(routes::follows::respond_follow))

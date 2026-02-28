@@ -566,8 +566,15 @@ export const LivePrematch = () => {
 
               {/* Switch Camera Button - Smaller w-7 h-7 */}
               <button onClick={switchCamera} className="w-7 h-7 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4C7.58 4 4.01 7.58 4.01 12C4.01 16.42 7.58 20 12 20C15.73 20 18.84 17.45 19.73 14H17.65C16.83 16.33 14.61 18 12 18C8.69 18 6 15.31 6 12C6 8.69 8.69 6 12 6C13.66 6 15.14 6.69 16.22 7.78L13 11H20V4L17.65 6.35Z"/>
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                  {/* Camera body */}
+                  <path d="M2 8.5A1.5 1.5 0 013.5 7H6l1.5-2.5h9L18 7h2.5A1.5 1.5 0 0122 8.5V18a1.5 1.5 0 01-1.5 1.5h-17A1.5 1.5 0 012 18V8.5z"/>
+                  {/* Circular arrows */}
+                  <path d="M15.5 12a3.5 3.5 0 01-6.1 2.3" />
+                  <path d="M8.5 14a3.5 3.5 0 016.1-2.3" />
+                  {/* Arrow heads */}
+                  <polyline points="9.2,12.2 9.4,14.5 7.2,14.3" />
+                  <polyline points="14.8,15.8 14.6,13.5 16.8,13.7" />
                 </svg>
               </button>
             </div>

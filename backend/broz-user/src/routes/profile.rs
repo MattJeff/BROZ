@@ -135,6 +135,29 @@ pub async fn complete_onboarding(
     Ok(Json(ApiResponse::ok(updated)))
 }
 
+// --- GET /profile/:id --- (public profile by credential_id or profile_id)
+
+pub async fn get_public_profile(
+    _user: AuthUser,
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
+) -> AppResult<Json<ApiResponse<Profile>>> {
+    let mut conn = state.db.get().map_err(|e| AppError::internal(e.to_string()))?;
+
+    // Try credential_id first, then profile id
+    let profile = profiles::table
+        .filter(profiles::credential_id.eq(id))
+        .first::<Profile>(&mut conn)
+        .or_else(|_| {
+            profiles::table
+                .filter(profiles::id.eq(id))
+                .first::<Profile>(&mut conn)
+        })
+        .map_err(|_| AppError::new(ErrorCode::ProfileNotFound, "profile not found"))?;
+
+    Ok(Json(ApiResponse::ok(profile)))
+}
+
 // --- GET /check-pseudo ---
 
 #[derive(Debug, Deserialize)]
