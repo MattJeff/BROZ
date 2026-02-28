@@ -12,6 +12,8 @@ pub struct QueueUser {
     pub kinks: Vec<String>,
     pub profile_photo_url: Option<String>,
     pub filters: MatchFilters,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
     #[serde(default = "default_joined_at")]
     pub joined_at: i64, // timestamp millis UTC
 }
@@ -100,6 +102,30 @@ fn pair_modifier(history: &PairHistory) -> f64 {
 fn freshness_score(candidate_wait_ms: i64) -> f64 {
     // Normalize: 0ms → 0.5, 3000ms → 1.0 (capped)
     (0.5 + (candidate_wait_ms as f64) / 6000.0).min(1.0)
+}
+
+/// Haversine distance in km between two lat/lng points.
+pub fn haversine_km(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
+    const R: f64 = 6371.0; // Earth radius in km
+    let d_lat = (lat2 - lat1).to_radians();
+    let d_lng = (lng2 - lng1).to_radians();
+    let a = (d_lat / 2.0).sin().powi(2)
+        + lat1.to_radians().cos() * lat2.to_radians().cos() * (d_lng / 2.0).sin().powi(2);
+    let c = 2.0 * a.sqrt().asin();
+    R * c
+}
+
+/// Distance score: closer users score higher.
+/// 0 km → 1.0, 100 km → ~0.5, 500+ km → ~0.1.
+fn distance_score(user_a: &QueueUser, user_b: &QueueUser) -> f64 {
+    match (user_a.latitude, user_a.longitude, user_b.latitude, user_b.longitude) {
+        (Some(lat1), Some(lng1), Some(lat2), Some(lng2)) => {
+            let km = haversine_km(lat1, lng1, lat2, lng2);
+            // Exponential decay: e^(-km/200), clamped to [0.05, 1.0]
+            (-km / 200.0).exp().max(0.05)
+        }
+        _ => 0.5, // No geolocation → neutral score
+    }
 }
 
 /// Age proximity as a soft score (NEVER blocking).
@@ -191,7 +217,7 @@ pub fn calculate_score(
     let wait_b = (now_ms - user_b.joined_at).max(0);
     let freshness = freshness_score((wait_a + wait_b) / 2);
 
-    let distance_factor = 1.0; // Simplified for MVP
+    let distance_factor = distance_score(user_a, user_b);
 
     let score = W_COUNTRY * country_match
         + W_AGE * age_prox

@@ -402,9 +402,9 @@ const VideoCall = () => {
   // Get partner distance
   const getPartnerDistance = useCallback(() => {
     if (!partner) return null;
-    // Distance should come from the backend match calculation
-    if (partner.distance !== undefined && partner.distance !== null) {
-      return Math.round(partner.distance);
+    // distance_km comes from backend match-found payload
+    if (partner.distance_km !== undefined && partner.distance_km !== null) {
+      return Math.round(partner.distance_km);
     }
     return null;
   }, [partner]);
@@ -853,6 +853,8 @@ const VideoCall = () => {
       socket.on('connect', () => {
         if (isActive) {
           setConnectionState('searching');
+          // Read geolocation from localStorage (captured in LivePrematch)
+          const geo = (() => { try { return JSON.parse(localStorage.getItem('brozr_geolocation')); } catch { return null; } })();
           // Build join-queue payload matching backend JoinQueuePayload
           const joinPayload = {
             display_name: user?.display_name || user?.username || 'Anonymous',
@@ -867,6 +869,8 @@ const VideoCall = () => {
               age_max: filters.ageMax || filters.age_max || null,
               kinks: filters.kinks || [],
             },
+            latitude: geo?.latitude || null,
+            longitude: geo?.longitude || null,
           };
           socket.emit('join-queue', joinPayload);
         }
@@ -1095,6 +1099,7 @@ const VideoCall = () => {
           setConnectionState('searching');
           // Ensure stream is still active before rejoining queue
           await ensureLocalStream();
+          const geo1 = (() => { try { return JSON.parse(localStorage.getItem('brozr_geolocation')); } catch { return null; } })();
           socket.emit('join-queue', {
             display_name: user?.display_name || user?.username || 'Anonymous',
             bio: user?.bio || null,
@@ -1108,9 +1113,11 @@ const VideoCall = () => {
               age_max: filters.ageMax || filters.age_max || null,
               kinks: filters.kinks || [],
             },
+            latitude: geo1?.latitude || null,
+            longitude: geo1?.longitude || null,
           });
         };
-        
+
         if (data.is_initiator) {
           // Small delay to ensure both peers are ready
           await new Promise(r => setTimeout(r, 500));
@@ -1209,6 +1216,7 @@ const VideoCall = () => {
           setConnectionState('searching');
 
           await ensureLocalStream();
+          const geo2 = (() => { try { return JSON.parse(localStorage.getItem('brozr_geolocation')); } catch { return null; } })();
           socket.emit('join-queue', {
             display_name: user?.display_name || user?.username || 'Anonymous',
             bio: user?.bio || null,
@@ -1222,6 +1230,8 @@ const VideoCall = () => {
               age_max: filters.ageMax || filters.age_max || null,
               kinks: filters.kinks || [],
             },
+            latitude: geo2?.latitude || null,
+            longitude: geo2?.longitude || null,
           });
         }
       });
@@ -1260,6 +1270,7 @@ const VideoCall = () => {
           setConnectionState('searching');
 
           await ensureLocalStream();
+          const geo3 = (() => { try { return JSON.parse(localStorage.getItem('brozr_geolocation')); } catch { return null; } })();
           socket.emit('join-queue', {
             display_name: user?.display_name || user?.username || 'Anonymous',
             bio: user?.bio || null,
@@ -1273,6 +1284,8 @@ const VideoCall = () => {
               age_max: filters.ageMax || filters.age_max || null,
               kinks: filters.kinks || [],
             },
+            latitude: geo3?.latitude || null,
+            longitude: geo3?.longitude || null,
           });
         }
       });
@@ -1422,6 +1435,7 @@ const VideoCall = () => {
       navigate('/video-call', { replace: true, state: null });
     } else {
       // For regular matches, just emit next_match
+      const geo4 = (() => { try { return JSON.parse(localStorage.getItem('brozr_geolocation')); } catch { return null; } })();
       socketRef.current?.emit('next-match', {
         display_name: user?.display_name || user?.username || 'Anonymous',
         bio: user?.bio || null,
@@ -1435,6 +1449,8 @@ const VideoCall = () => {
           age_max: tempAgeMax || null,
           kinks: tempKinks || [],
         },
+        latitude: geo4?.latitude || null,
+        longitude: geo4?.longitude || null,
       });
     }
   };

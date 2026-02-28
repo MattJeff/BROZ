@@ -91,6 +91,21 @@ export const LivePrematch = () => {
   const [showGoLiveHint, setShowGoLiveHint] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   
+  // Capture geolocation on mount for distance calculation
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          localStorage.setItem('brozr_geolocation', JSON.stringify({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }));
+        },
+        () => {} // Permission denied — no geolocation, distance will be null
+      );
+    }
+  }, []);
+
   // Detect if device is touch-capable (mobile) on mount
   useEffect(() => {
     const checkMobile = () => {

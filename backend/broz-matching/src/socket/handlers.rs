@@ -25,6 +25,8 @@ pub struct JoinQueuePayload {
     pub kinks: Vec<String>,
     pub profile_photo_url: Option<String>,
     pub filters: algorithm::MatchFilters,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,6 +45,7 @@ pub struct PartnerInfo {
     pub country: Option<String>,
     pub kinks: Vec<String>,
     pub profile_photo_url: Option<String>,
+    pub distance_km: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -216,6 +219,8 @@ async fn on_join_queue(
         kinks: payload.kinks,
         profile_photo_url: payload.profile_photo_url,
         filters: payload.filters,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
         joined_at: Utc::now().timestamp_millis(),
     };
 
@@ -293,6 +298,8 @@ async fn on_next_match(
         kinks: payload.kinks,
         profile_photo_url: payload.profile_photo_url,
         filters: payload.filters,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
         joined_at: Utc::now().timestamp_millis(),
     };
 
@@ -824,6 +831,17 @@ async fn try_match_inner(socket: &SocketRef, state: &Arc<AppState>, user_id: &Uu
         // Set cooldown so they do not get matched again immediately
         queue::set_cooldown(&state.redis, user_id, &partner.user_id).await;
 
+        // Calculate distance between the two users (if both have geolocation)
+        let distance_km = match (
+            current_user.latitude, current_user.longitude,
+            partner.latitude, partner.longitude,
+        ) {
+            (Some(lat1), Some(lng1), Some(lat2), Some(lng2)) => {
+                Some((algorithm::haversine_km(lat1, lng1, lat2, lng2) * 10.0).round() / 10.0)
+            }
+            _ => None,
+        };
+
         // Emit match-found to the current user
         let payload_for_current = MatchFoundPayload {
             match_id,
@@ -835,6 +853,7 @@ async fn try_match_inner(socket: &SocketRef, state: &Arc<AppState>, user_id: &Uu
                 country: partner.country.clone(),
                 kinks: partner.kinks.clone(),
                 profile_photo_url: partner.profile_photo_url.clone(),
+                distance_km,
             },
             is_initiator: true,
         };
@@ -851,6 +870,7 @@ async fn try_match_inner(socket: &SocketRef, state: &Arc<AppState>, user_id: &Uu
                 country: current_user.country.clone(),
                 kinks: current_user.kinks.clone(),
                 profile_photo_url: current_user.profile_photo_url.clone(),
+                distance_km,
             },
             is_initiator: false,
         };
