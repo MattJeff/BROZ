@@ -559,7 +559,7 @@ export const LivePrematch = () => {
         </div>
 
         {/* Right side controls - ALIGNED with profile photo */}
-        <div className="absolute top-3 right-3 bottom-24 flex flex-col items-center justify-between z-20">
+        <div className="absolute top-3 right-3 bottom-24 flex flex-col items-end justify-between z-20">
           {/* Top: Bell + Camera in blur pill - SMALLER icons */}
           <div className="relative flex flex-col items-center">
             {/* Blur background pill */}
@@ -601,8 +601,9 @@ export const LivePrematch = () => {
             disabled={!cameraReady || isSearching}
             className="flex flex-col items-center gap-1.5 disabled:opacity-50 transition-all active:scale-95"
           >
-            <div className="text-center mb-1" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-              <span className="text-white text-sm font-bold block animate-pulse">Appuie ici pour rejoindre le live</span>
+            <div className="text-right mb-1" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+              <span className="text-white text-base font-bold block animate-pulse">Appuie ici</span>
+              <span className="text-white text-base font-bold block animate-pulse">pour rejoindre le live</span>
             </div>
             <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center shadow-xl animate-pulse-glow">
               {isSearching ? (

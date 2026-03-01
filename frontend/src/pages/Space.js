@@ -66,10 +66,8 @@ export const Space = () => {
   const peerConnectionRef = useRef(null);   // publish PC
   const subscribePcRef = useRef(null);      // subscribe PC (receives other peer's tracks)
   const sfuCleanedUpRef = useRef(false);    // guard for subscribe retry loop
-  const [callDuration, setCallDuration] = useState(0);
-  const callTimerRef = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   
@@ -652,17 +650,12 @@ export const Space = () => {
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = null;
     }
-    if (callTimerRef.current) {
-      clearInterval(callTimerRef.current);
-      callTimerRef.current = null;
-    }
     setCallState(null);
     setCallData(null);
     setLocalStream(null);
     setRemoteStream(null);
-    setCallDuration(0);
     setIsMuted(false);
-    setIsCameraOff(false);
+    setFacingMode('user');
   }, [localStream]);
 
   // Helper: create offer + wait for ICE gathering to complete
@@ -836,6 +829,45 @@ export const Space = () => {
     cleanupCall();
   }, [callData, cleanupCall]);
 
+  // Switch camera (front/back)
+  const switchCamera = async () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true
+      });
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      const newAudioTrack = newStream.getAudioTracks()[0];
+      if (!newVideoTrack) throw new Error('No video track obtained');
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = newStream;
+      }
+
+      // Replace tracks in publish peer connection
+      if (peerConnectionRef.current) {
+        const senders = peerConnectionRef.current.getSenders();
+        const videoSender = senders.find(s => s.track?.kind === 'video');
+        if (videoSender) await videoSender.replaceTrack(newVideoTrack);
+        if (newAudioTrack) {
+          const audioSender = senders.find(s => s.track?.kind === 'audio');
+          if (audioSender) await audioSender.replaceTrack(newAudioTrack);
+        }
+      }
+
+      // Stop old stream tracks
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      setLocalStream(newStream);
+      setFacingMode(newMode);
+    } catch (err) {
+      console.error('Switch camera error:', err);
+      toast.error('Impossible de changer de caméra');
+    }
+  };
+
   // Connect to SFU when call becomes active AND localStream is ready
   useEffect(() => {
     if (callState === 'active' && localStream && callData?.sfu_token && !peerConnectionRef.current) {
@@ -859,21 +891,6 @@ export const Space = () => {
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
-
-  // Call duration timer
-  useEffect(() => {
-    if (callState === 'active') {
-      callTimerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
-    } else {
-      if (callTimerRef.current) {
-        clearInterval(callTimerRef.current);
-        callTimerRef.current = null;
-      }
-    }
-    return () => {
-      if (callTimerRef.current) clearInterval(callTimerRef.current);
-    };
-  }, [callState]);
 
   // Fetch partner profile when call becomes active
   useEffect(() => {
@@ -1890,14 +1907,29 @@ export const Space = () => {
           playsInline
           className={callState === 'active' ? "fixed inset-0 w-full h-full object-cover z-[9999] pointer-events-none" : "hidden"}
         />
-        <video
-          ref={localVideoRef}
-          autoPlay
-          playsInline
-          muted
-          className={callState === 'active' ? "fixed top-3 right-3 w-24 h-32 object-cover rounded-2xl border-2 border-white/30 shadow-xl z-[10002] pointer-events-none" : "hidden"}
-          style={callState === 'active' ? { transform: 'scaleX(-1)' } : undefined}
-        />
+        {callState === 'active' ? (
+          <div className="fixed top-3 right-3 w-24 h-32 rounded-2xl overflow-hidden border-2 border-white/30 shadow-xl z-[10002] bg-black">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+              style={{ transform: 'scaleX(-1)' }}
+            />
+            {/* Switch Camera */}
+            <button
+              onClick={switchCamera}
+              className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/80 transition-all"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4C7.58 4 4.01 7.58 4.01 12C4.01 16.42 7.58 20 12 20C15.73 20 18.84 17.45 19.73 14H17.65C16.83 16.33 14.61 18 12 18C8.69 18 6 15.31 6 12C6 8.69 8.69 6 12 6C13.66 6 15.14 6.69 16.22 7.78L13 11H20V4L17.65 6.35Z"/>
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <video ref={localVideoRef} className="hidden" />
+        )}
 
         {/* Active Call View — identical to VideoCall.js connected UI */}
         {callState === 'active' && (() => {
@@ -1962,15 +1994,6 @@ export const Space = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-              </div>
-            </div>
-
-            {/* Timer pill - top center */}
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-              <div className="bg-black/50 px-3 py-1 rounded-full">
-                <span className="text-white text-sm font-mono">
-                  {String(Math.floor(callDuration / 60)).padStart(2, '0')}:{String(callDuration % 60).padStart(2, '0')}
-                </span>
               </div>
             </div>
 
@@ -2125,24 +2148,6 @@ export const Space = () => {
                         </>
                       ) : (
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                      )}
-                    </svg>
-                  </button>
-                  {/* Camera */}
-                  <button
-                    onClick={() => {
-                      if (localStream) {
-                        localStream.getVideoTracks().forEach(t => { t.enabled = !t.enabled; });
-                        setIsCameraOff(c => !c);
-                      }
-                    }}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isCameraOff ? 'bg-red-500 text-white' : 'bg-[#333] text-white hover:bg-[#444]'}`}
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill={isCameraOff ? 'none' : 'currentColor'} stroke={isCameraOff ? 'currentColor' : 'none'} strokeWidth="1.5">
-                      {isCameraOff ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                      ) : (
-                        <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       )}
                     </svg>
                   </button>
